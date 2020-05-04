@@ -42,7 +42,12 @@ class MakePairsILP:
             if self.schedVarsP['schedVar'].iloc[k].x==1:
                 i=self.schedVarsP['taskID_1'].iloc[k]
                 j=self.schedVarsP['taskID_2'].iloc[k]
-                thisPair=(i, j)
+                pairPeriod=curSystem.tasksThisLevel[i].period
+                pairCost=self.curSystem.tasksThisLevel[i].allCosts(j, 
+                                                               curSystem.level, 
+                                                               UNRESTRICTED, 
+                                                               UNRESTRICTED)
+                thisPair=(i, j, float(pairCost/pairPeriod))
                 thePairs.append(thisPair)
         return (thePairs, self.solver.runtime)
     
