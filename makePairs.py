@@ -9,6 +9,7 @@ from gurobipy import *
 from random import random, gauss, uniform, choice
 import pandas as pd
 
+
 TIMEOUT=60
 SOLUTION_LIMIT=1000
 #0 threds per test --> let Gurobi figure out how many to use
@@ -36,13 +37,18 @@ class MakePairsILP:
         
         #Return a list showing all pairs
         #Note some items are paired with themselves
+        curSystem=self.curSystem
 
         thePairs=[]
         for k in range(len(self.schedVarsP.index)):
             if self.schedVarsP['schedVar'].iloc[k].x==1:
                 i=self.schedVarsP['taskID_1'].iloc[k]
                 j=self.schedVarsP['taskID_2'].iloc[k]
-                thisPair=(i, j)
+                pairPeriod=curSystem.tasksThisLevel[i].period
+                pairCost=self.curSystem.tasksThisLevel[i].allCosts[(j, 
+                                                               curSystem.level, 
+                                                               curSystem.assumedCache)]
+                thisPair=(i, j, float(pairCost/pairPeriod))
                 thePairs.append(thisPair)
         return (thePairs, self.solver.runtime)
     
@@ -54,6 +60,7 @@ class MakePairsILP:
                 print(self.schedVarsP['taskID_1'].iloc[k], self.schedVarsP['taskID_2'].iloc[k])
 
         '''
+
     def setSolverParams(self):
         self.solver.setParam("TimeLimit", TIMEOUT)
         self.solver.setParam("SolutionLimit", SOLUTION_LIMIT)
@@ -63,6 +70,7 @@ class MakePairsILP:
 
     def createSchedVarsAndSetObj(self):
         system=self.curSystem
+        tasksThisLevel=system.tasksThisLevel
         
         schedVars={'taskID_1'      : [],
                         'taskID_2'      : [],
@@ -70,16 +78,20 @@ class MakePairsILP:
                 }
 
         expr=LinExpr()
-        for i in range(system.firstInSystem, system.systemTotal):
-            for j in range(i, system.systemTotal):
+        # recall tasks are 0-indexed
+        for i in range(0, len(tasksThisLevel)):
+            for j in range(i, len(tasksThisLevel)):
                 
-                periodsMatch=(system.allTasks[i].period==system.allTasks[j].period)
+                periodsMatch=(tasksThisLevel[i].period==tasksThisLevel[j].period)
                 #this part of program only runs once, with an assumed cache level
-                pairedCost=system.allTasks[i].allCosts(j, system.level, system.assumedL2, system.assumedL3)
+                myTask=tasksThisLevel[i]
+                #print(myTask.allCosts)
+                #pairedCost=system.tasksThisLevel[i].allCosts[(j, system.level, system.assumedCache)]
+                pairedCost=myTask.allCosts[(j, system.level, system.assumedCache)]
                 
-                if periodsMatch and pairedCost<=system.allTasks[i].period:
+                if periodsMatch and pairedCost<=tasksThisLevel[i].period:
                 
-                    pairedUtil=pairedCost/system.allTasks[i].period
+                    pairedUtil=pairedCost/tasksThisLevel[i].period
                     var=self.solver.addVar(lb=0, ub=1, vtype=GRB.BINARY)
                     schedVars['taskID_1'].append(i)
                     schedVars['taskID_2'].append(j)
@@ -92,14 +104,14 @@ class MakePairsILP:
         self.solver.addConstr(lhs=self.threadedUtil, rhs=expr, sense=GRB.EQUAL)
         
         #return scheduling vars for future use
-        return pd.DataFrame(self.schedVars)
+        return pd.DataFrame(schedVars)
         
         
         
                
     def requireAllJobsScheduled (self):
         system=self.curSystem
-        for i in range(system.firstInSystem, system.systemTotal):
+        for i in range(len(system.tasksThisLevel)):
             schedVarsThisTask=self.schedVarsP[(self.schedVarsP['taskID_1']==i) | (self.schedVarsP['taskID_2']==i) ]
             expr=LinExpr()
             for k in range(len(schedVarsThisTask.index)):
@@ -107,9 +119,26 @@ class MakePairsILP:
             #for every i, paired with exactly one other (include itself as an option)
             self.solver.addConstr(lhs=expr, rhs=1, sense=GRB.EQUAL)
 
+def main():
+    
+    from taskSystem import taskSystem
+    #from crit_level import CritLevel
+    #from constants import Constants
+    
+    totalCores=4
+    coresPerComplex=4
+    cacheSizeL3=2
+
+    assumedCache=cacheSizeL3
+
+    fileLevelA="levelA-v1.csv"
+    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA)
+    mySystem.levelA.loadSystem(fileLevelA)
+    mySystem.levelA.setPairsList()
+             
                 
-                
-            
+if __name__== "__main__":
+     main()            
         
 
  
