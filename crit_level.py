@@ -20,14 +20,14 @@ class CritLevelSystem:
         #self.firstInSystem = numHigherCritTasks + 1
 
         self.thePairs = []
-        self.timeToPair=0
+        self.timeToPair = 0
         self.tasksThisLevel = []
-        self.assumedCache=assumedCache
+        self.assumedCache = assumedCache
 
 
     def loadSystem(self, filename):
         header = True
-        tasksThisLevel=self.tasksThisLevel
+        tasksThisLevel = self.tasksThisLevel
         with open(filename, "r") as f:
             for line in f:
                 if header:
@@ -38,7 +38,7 @@ class CritLevelSystem:
                     cacheListC = []
                     for column in range(2, len(headerArr)):
                         keyList = headerArr[column].split("-")
-                        
+                        # to-do: the following codes are not required later. headerArr is used instead. Should they be removed?
                         sibling = int(keyList[0])
                         critLevel = keyList[1]
                         '''
@@ -53,6 +53,7 @@ class CritLevelSystem:
                         # update total number of cache
                         numTasks = max(numTasks, sibling)
                         # update possible cache allocations
+
                         if (critLevel == "A" or critLevel == "B") and cache not in cacheListAB:
                             cacheListAB.append(cache)
                         if (critLevel == "C") and cache not in cacheListC:
@@ -70,14 +71,14 @@ class CritLevelSystem:
                         sibling = int(keyList[0])
                         critLevel = keyList[1]
                         if critLevel == "A":
-                            critLevelInt= Constants.LEVEL_A
+                            critLevelInt = Constants.LEVEL_A
                         elif critLevel == "B":
-                            critLevelInt= Constants.LEVEL_B
+                            critLevelInt = Constants.LEVEL_B
                         else:
-                            critLevelInt= Constants.LEVEL_C
+                            critLevelInt = Constants.LEVEL_C
                         
                         cacheList = int(keyList[2])
-                        thisCost=float(arr[column])*float(period)
+                        thisCost = float(arr[column])*float(period)
                         newTask.allCosts[(sibling, critLevelInt, cacheList)] = thisCost
                     tasksThisLevel.append(newTask)
 
@@ -93,10 +94,10 @@ class CritLevelSystem:
         # to-do: implement a second method for period-aware worst-fit
         # should this change each core's list of tasks?
         # using 0-indexed cores
-        if len(self.thePairs)==0:
-            self.setPairsList
+        if len(self.thePairs) == 0:
+            raise NotImplementedError
 
-        thePairs=self.thePairs
+        thePairs = self.thePairs
 
         sortedPairs = sorted(thePairs, key=lambda x: x[2], reverse=True)
 
