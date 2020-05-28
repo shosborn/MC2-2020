@@ -15,13 +15,14 @@ from constants import Constants
 class CritLevelSystem:
 
 
-    def __init__(self, level, assumedCache):
+    def __init__(self, level, assumedCache, upperCritLevel = None):
         self.level = level
         #self.firstInSystem = numHigherCritTasks + 1
 
         self.thePairs = []
         self.timeToPair = 0
         self.tasksThisLevel = []
+        self.upperCritLevel = upperCritLevel #reference to immediate upper criticality level.
         self.assumedCache = assumedCache
 
 
