@@ -24,12 +24,13 @@ class Cluster:
         tempTaskList.append(newTask)
         newUsedCapacity = self.usedCapacity + newTask.currentThreadedUtil
         if not self.threaded:
+            #first test
             m=len(self.coresThisCluster)
             if newUsedCapacity>m:
                 return False
 
             # second test
-            sortedTasks = sorted(self.tempTaskList, key=lambda x: x.currentSoloUtil, reverse=True)
+            sortedTasks = sorted(tempTaskList, key=lambda x: x.currentSoloUtil, reverse=True)
             sumLargest = 0
             for t in range(min(m, len(self.taskList))):
                 sumLargest = sumLargest + sortedTasks[t].currentSoloUtil
@@ -42,14 +43,20 @@ class Cluster:
 
         else:
             m=2*len(self.coresThisCluster)
+            #first test
             if newUsedCapacity>m:
+                print("Failed first test.")
                 return False
             # secondTest
-            sortedTasks = sorted(self.tempTaskList, key=lambda x: x.currentThreadedUtil, reverse=True)
+            sortedTasks = sorted(tempTaskList, key=lambda x: x.currentThreadedUtil, reverse=True)
             sumLargest = 0
             for t in range(min(m, len(self.taskList))):
                 sumLargest = sumLargest + sortedTasks[t].currentThreadedUtil
             if (m - 1) * sortedTasks[0].currentThreadedUtil + sumLargest + self.usedCapacityHigherLevels >= m:
+                print("Failed second test.")
+                print("Single largest=", sortedTasks[0].currentThreadedUtil)
+                print("sumLargest=", sumLargest)
+                #print("sum largest + used HL=", (m - 1) * sortedTasks[0].currentThreadedUtil + sumLargest + self.usedCapacityHigherLevels )
                 return False
 
             # if adding task will not make cluster unschedulable, go ahead and add it

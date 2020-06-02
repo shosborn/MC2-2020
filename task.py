@@ -13,7 +13,7 @@ class Task:
         self.ID=ID
         self.period = period
         self.relDeadline = relDeadline
-        self.allCosts = {}
+        self.allUtil = {}
         if taskLevel == Constants.LEVEL_C:
             self.currentSoloUtil=0
             self.currentThreadedCost = 0

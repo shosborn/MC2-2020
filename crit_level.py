@@ -66,7 +66,7 @@ class CritLevelSystem:
                 else:
                     arr = line.split(",")
                     taskID = int(arr[0])
-                    print("taskID=", taskID)
+                    #print("taskID=", taskID)
                     period = relDeadline = int(arr[1])
                     newTask = Task(taskID, self.level, period, relDeadline)
                     for column in range(2, len(arr)):
@@ -82,8 +82,8 @@ class CritLevelSystem:
                             critLevelInt = Constants.LEVEL_C
                         
                         cacheList = int(keyList[2])
-                        thisCost = float(arr[column])*float(period)
-                        newTask.allCosts[(sibling, critLevelInt, cacheList)] = thisCost
+                        thisUtil = float(arr[column])
+                        newTask.allUtil[(sibling, critLevelInt, cacheList)] = thisUtil
                     tasksThisLevel.append(newTask)
 
     #applies to crit levels A and B
@@ -112,8 +112,9 @@ class CritLevelSystem:
             utilOnBest = Constants.ASSUMED_MAX_CAPACITY
             task1=pair[0]
             task2=pair[1]
-            pairCost=self.tasksThisLevel[task1].allCosts[(task2, self.level, self.assumedCache)]
-            pairUtil=float(pairCost/self.tasksThisLevel[task1].period)
+            pairUtil=self.tasksThisLevel[task1].allUtil[(task2, self.level, self.assumedCache)]
+            #pairCost=self.tasksThisLevel[task1].allCosts[(task2, self.level, self.assumedCache)]
+            #pairUtil=float(pairCost/self.tasksThisLevel[task1].period)
 
             #for c in coreList:
             for c in range(len(coreList)):
@@ -145,18 +146,18 @@ class CritLevelSystem:
         In any cache, we need an assumed cache level to start.
         '''
         for thisTask in self.tasksThisLevel:
-            soloCost=thisTask.allcosts.allCosts(thisTask.ID, self.level, self.assumedCache)
-            thisTask.currentSoloUtil = soloCost/thisTask.period
-            threadedCost=0
+            #soloCost=thisTask.allCosts[(thisTask.ID, self.level, self.assumedCache)]
+            #thisTask.currentSoloUtil = soloCost/thisTask.period
+            thisTask.currentSoloUtil=thisTask.allUtil[(thisTask.ID, self.level, self.assumedCache)]
+            threadedUtil=0
             for otherTask in self.tasksThisLevel:
-                threadedCost=max(threadedCost,
-                                 thisTask.allCosts(otherTask.ID, self.level, self.assumedCache))
-            thisTask.currentThreadedCost=threadedCost
-            thisTask.currentThreadedUtil=threadedCost/thisTask.period
+                threadedUtil=max(threadedUtil,
+                                 thisTask.allUtil[(otherTask.ID, self.level, self.assumedCache)])
+            thisTask.currentThreadedUtil=threadedUtil
 
-            if soloCost>threadedCost/2 or threadedCost/thisTask.period>1:
+            if thisTask.currentSoloUtil<thisTask.currentThreadedUtil/2 or thisTask.currentThreadedUtil>=Constants.MAX_THREADED_UTIL:
                 self.soloTasks.append(thisTask)
-                self.totalSoloUtil = self.totalSoloUtil + thisTask.soloCost/thisTask.period
+                self.totalSoloUtil = self.totalSoloUtil + thisTask.currentSoloUtil
             else:
                 self.threadedTasks.append(thisTask)
                 self.totalThreadedUtil = self.totalThreadedUtil + thisTask.currentThreadedUtil
@@ -173,8 +174,13 @@ class CritLevelSystem:
             if c ==len(coreList):
                 #can't do all the solo tasks; return failure
                 return False
+        print("Prelim. solo cores:")
+        for  core in self.soloCores:
+            print(core.coreID, end=",")
+        print()
 
         #determine cores needed for threaded
+        threadedCapacity=0
         c = len(coreList)-1
         remainingCores = len(coreList)-len(self.soloCores)
         while threadedCapacity < self.totalThreadedUtil:
@@ -184,21 +190,40 @@ class CritLevelSystem:
             remainingCores -=1
             if remainingCores < 0:
                 return False
+        print("Prelim. threadedCores cores:")
+        for core in self.threadedCores:
+            print(core.coreID, end=",")
+        print()
 
         #allocate any leftover cores
         nextSoloCore=len(self.soloCores)
         nextThreadedCore=c
         while remainingCores > 0:
-            if self.totalThreadedUtil/threadedCapacity < self.totalSoloUtil/soloCapacity:
+            #if threadedCapacity>0:
+#            print("threaded % used: ", self.totalThreadedUtil/threadedCapacity)
+#            print("solo % used: ", self.totalSoloUtil/soloCapacity)
+            if threadedCapacity==0:
+                # no threads; everything should be solo
+                self.soloCores.append(coreList[nextSoloCore])
+                soloCapacity = soloCapacity + Constants.ASSUMED_MAX_CAPACITY - coreList[nextSoloCore].utilOnCore[Constants.LEVEL_C]
+                nextSoloCore +=1
+            elif soloCapacity==0:
+                # no solos; everything should be threaded
                 threadedCapacity = threadedCapacity + 2 * (Constants.ASSUMED_MAX_CAPACITY - coreList[nextThreadedCore].utilOnCore[Constants.LEVEL_C])
                 self.threadedCores.append(coreList[nextThreadedCore])
                 nextThreadedCore -= 1
             else:
-                soloCapacity = soloCapacity + Constants.ASSUMED_MAX_CAPACITY - coreList[nextSoloCore].utilOnCore[Constants.LEVEL_C]
-                self.soloCores.append(coreList[nextSoloCore])
-                nextSoloCore += 1
-            remainingCores -= 1
-
+                #some of each
+                if self.totalThreadedUtil/threadedCapacity > self.totalSoloUtil/soloCapacity:
+                    threadedCapacity = threadedCapacity + 2 * (Constants.ASSUMED_MAX_CAPACITY - coreList[nextThreadedCore].utilOnCore[Constants.LEVEL_C])
+                    self.threadedCores.append(coreList[nextThreadedCore])
+                    nextThreadedCore -= 1
+                else:
+                    soloCapacity = soloCapacity + Constants.ASSUMED_MAX_CAPACITY - coreList[nextSoloCore].utilOnCore[Constants.LEVEL_C]
+                    self.soloCores.append(coreList[nextSoloCore])
+                    nextSoloCore += 1
+            remainingCores -=1
+                
         #define the clusters
         #each cluster has a list of cores, list of tasks
         numSoloClusters=math.ceil(len(self.soloCores)/coresPerComplex)
@@ -208,13 +233,43 @@ class CritLevelSystem:
                 clusterCores.append(coreList[j])
             thisCluster=Cluster(clusterCores, False)
             self.soloClusters.append(thisCluster)
-        numThreadedClusters=math.ceil(len(self.threadedClusters)/coresPerComplex)
+            
+            
+        numThreadedClusters=math.ceil(len(self.threadedCores)/coresPerComplex)
+        print("numThreadedClusters: ", numThreadedClusters)
+        #sizeLastSoloCluster=len(self.soloClusters[numSoloClusters-1].clusterCores)
+        # deal with odd-sized threaded cluster, if it exists
+        j=len(self.soloCores)
+        clusterCores=[]
+        while j <len(coreList):
+            clusterCores.append(coreList[j])
+            if (j+1) % coresPerComplex==0:
+                thisCluster=Cluster(clusterCores, True)
+                self.threadedClusters.append(thisCluster)
+                clusterCores=[]
+            j+=1
+            #print("j=", j)
+            
+        '''
+        if sizeLastSoloCluster<coresPerComplex:
+            clusterCores=[]
+            j=len(self.soloCores)
+            while j % coresPerComplex>0:
+                clusterCores.append(coreList[j])
+                j+=1
+        '''
+                
+                
+        '''
         for i in range (numThreadedClusters):
             clusterCores=[]
-            for j in range(i*coresPerComplex, min(i+1)*coresPerComplex, len(self.threadedCores)):
+            for j in range(i*coresPerComplex, min((i+1)*coresPerComplex, len(self.threadedCores))):
+            #j=min(len(self.soloCores), numSoloClusters*coresPerComplex*(i+1))
+            #while ((j+1) % coresPerComplex) > 0:
                 clusterCores.append(coreList[j])
             thisCluster=Cluster(clusterCores, True)
             self.threadedClusters.append(thisCluster)
+        '''
 
 
     #applies to level C only
@@ -232,7 +287,7 @@ class CritLevelSystem:
         self.soloTasks.sort(key=lambda x:x.currentSoloUtil, reverse=True)
         for t in self.soloTasks:
             success=False
-            self.soloClusters.sort(key=lambda x:x.remainingCapacity, reverse=False)
+            self.soloClusters.sort(key=lambda x:x.remainingCapacity, reverse=True)
             for c in self.soloClusters:
                 if c.testAndAddTask(t):
                     success=True
@@ -245,7 +300,7 @@ class CritLevelSystem:
         self.threadedTasks.sort(key=lambda x: x.currentThreadedUtil, reverse=True)
         for t in self.threadedTasks:
             success = False
-            self.threadedClusters.sort(key=lambda x: x.remainingCapacity, reverse=False)
+            self.threadedClusters.sort(key=lambda x: x.remainingCapacity, reverse=True)
             for c in self.threadedClusters:
                 if c.testAndAddTask(t):
                     success = True

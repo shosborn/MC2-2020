@@ -44,11 +44,11 @@ class MakePairsILP:
             if self.schedVarsP['schedVar'].iloc[k].x==1:
                 i=self.schedVarsP['taskID_1'].iloc[k]
                 j=self.schedVarsP['taskID_2'].iloc[k]
-                pairPeriod=curSystem.tasksThisLevel[i].period
-                pairCost=self.curSystem.tasksThisLevel[i].allCosts[(j, 
+                #pairPeriod=curSystem.tasksThisLevel[i].period
+                pairUtil=self.curSystem.tasksThisLevel[i].allUtil[(j, 
                                                                curSystem.level, 
                                                                curSystem.assumedCache)]
-                thisPair=(i, j, float(pairCost/pairPeriod))
+                thisPair=(i, j, float(pairUtil))
                 thePairs.append(thisPair)
         return (thePairs, self.solver.runtime)
     
@@ -87,11 +87,11 @@ class MakePairsILP:
                 myTask=tasksThisLevel[i]
                 #print(myTask.allCosts)
                 #pairedCost=system.tasksThisLevel[i].allCosts[(j, system.level, system.assumedCache)]
-                pairedCost=myTask.allCosts[(j, system.level, system.assumedCache)]
+                pairedUtil=myTask.allUtil[(j, system.level, system.assumedCache)]
                 
-                if periodsMatch and pairedCost<=tasksThisLevel[i].period:
+                if periodsMatch and pairedUtil<=1:
                 
-                    pairedUtil=pairedCost/tasksThisLevel[i].period
+                    #pairedUtil=pairedCost/tasksThisLevel[i].period
                     var=self.solver.addVar(lb=0, ub=1, vtype=GRB.BINARY)
                     schedVars['taskID_1'].append(i)
                     schedVars['taskID_2'].append(j)
