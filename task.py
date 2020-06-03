@@ -20,7 +20,12 @@ class Task:
         #self.allCostsA=[]
         #self.allCostsB=[]
         #self.allCostsC=[]
-        
+
+        def __repr__(self):
+            return "ID: %s"%self.ID
+
+        def __srt__(self):
+            return "ID: %s" % self.ID
 
         
     
