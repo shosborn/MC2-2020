@@ -14,9 +14,12 @@ from constants import Constants
 class taskSystem:
     
     def __init__(self, totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA):
-        self.platform=HardwarePlatform(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
-        self.levelA=CritLevelSystem(Constants.LEVEL_A, assumedCache)
+        self.platform = HardwarePlatform(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
+        self.levelA = CritLevelSystem(Constants.LEVEL_A, assumedCache)
+        self.levelB = CritLevelSystem(Constants.LEVEL_B, assumedCache)
 
+        self.levels = []
+        self.levels.extend([self.levelA,self.levelB])
 
     def printPairsByCore(self):
         coreList=self.platform.coreList
