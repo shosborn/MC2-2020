@@ -67,6 +67,29 @@ class Overheads:
                         numTasks[mid+1] - numTasks[mid]) * \
                    (taskCount - overheadData.iloc[mid])
 
+    def getOverheadValue(self,taskCount,criticalityLevel,overhead):
+        '''
+        get overhead value. currently for any overhead other than CPMD
+        use list of tasks instead of taskCount (may be needed for CPMD)? otherwise for CPMD getCPMD() method can be called directly.
+        :param taskCount: number of tasks
+        :param overhead: overhead type for which value is derived
+        :return:
+        '''
+        if overhead == 'CPMD': #cache related preemption and migration delay
+            raise NotImplementedError
+        # for any taskcount > max # of tasks in overhead data, maxmimum observed overhead value is used
+        return self.montonicInterpolation(taskCount,criticalityLevel,overhead)
+
+    def getCPMD(self,task,cacheSize):
+        '''
+        calculate cache related preemption and migration delay.
+        wss is assumed to be stored in task.py
+        todo: for level-A, -B, cachesize can be be found from its assigned core?
+        :param task:
+        :param cacheSize:
+        :return:
+        '''
+        return
 def main():
     overHeads = Overheads()
     overHeads.loadOverheadData('oheads')
