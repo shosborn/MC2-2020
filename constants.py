@@ -14,6 +14,7 @@ class Constants:
     PERIOD_AWARE_WORST = 1
 
     ASSUMED_MAX_CAPACITY = 1
+
     
     # maximum threaded util
     '''
@@ -22,3 +23,19 @@ class Constants:
     Best choice is dependent on the number of threads/ cluster?
     '''
     MAX_THREADED_UTIL = .7
+
+    #column header from overhead data file
+    overheadTypes = {'CXS': 'CXS',
+                     'ISR': 'ISR',
+                     'SCH': 'SCHED_A',
+                     'SCL': 'SCHED_C',
+                     'RLA': 'RELEASE_LATENCY_A',
+                     'RLC': 'RELEASE_LATENCY_C',
+                     'RQA': 'RELEASE',
+                     'RQC': 'RELEASE_C',
+                     'TCK': 'TICK',
+                     'SCHED': 'SCHED',
+                     'SCHED2': 'SCHED2',
+                     'SRD': 'SRD',
+                     'RLY': 'RELEASE_LATENCY'
+                     }

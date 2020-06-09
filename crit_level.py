@@ -17,14 +17,14 @@ import math
 class CritLevelSystem:
 
 
-    def __init__(self, level, assumedCache, upperCritLevel = None):
+    def __init__(self, level, assumedCache, upperCritLevels = None):
         self.level = level
         #self.firstInSystem = numHigherCritTasks + 1
 
         self.thePairs = []
         self.timeToPair = 0
         self.tasksThisLevel = []
-        self.upperCritLevel = upperCritLevel #reference to immediate upper criticality level.
+        #self.upperCritLevels = upperCritLevels #reference to immediate upper criticality level.
         self.assumedCache = assumedCache
         if level == Constants.LEVEL_C:
             self.soloTasks=[]
@@ -96,6 +96,12 @@ class CritLevelSystem:
 
     #applies to crit levels A and B
     def assignToCores(self, alg, coreList):
+        '''
+        Assign tasks to cores, applicable to level-A and -B tasks
+        :param alg: partitioning algorithm, unused
+        :param coreList: list of cores
+        :return:
+        '''
         # to-do: implement a second method for period-aware worst-fit
         # should this change each core's list of tasks?
         # using 0-indexed cores
@@ -132,9 +138,13 @@ class CritLevelSystem:
             else:
                 coreList[bestCoreSoFar].utilOnCore[self.level] = utilOnBest
                 coreList[bestCoreSoFar].pairsOnCore[self.level].append(pair)
+                #update lower levels utilizations upto level B on this core (can be done upto C, but may impact C's code), will be starting point for level B
+                for critLevel in range(self.level+1,Constants.LEVEL_B+1):
+                    coreList[bestCoreSoFar].utilOnCore[critLevel] += float(self.tasksThisLevel[task1].allCosts[(task2, critLevel, self.assumedCache)]/self.tasksThisLevel[task1].period)
         # returns only if all pairs could be placed on a core
         # return pairsByCore
         return True
+
 
     #applies to crit level C
     def decideThreaded(self):
@@ -313,9 +323,34 @@ class CritLevelSystem:
 
 
 
+    def printCoreAssignment(self,coreList):
+        critLevel = self.level
+        for c in range(len(coreList)):
+            print("core: ",c)
+            for pair in coreList[c].pairsOnCore[self.level]:
+                print("<",self.tasksThisLevel[pair[0]].ID,",",self.tasksThisLevel[pair[1]].ID,">",end=" ")
+            print(coreList[c].utilOnCore[self.level])
 
-
-
+    def schedulabilityTest(self,coreList,allCritLevels):
+        '''
+        perform schedulability test at this criticality level
+        :param coreList: List of cores
+        :param allCritLevels: reference to a list of all criticality levels
+        :return: true of false depending on schedulability
+        '''
+        if self.level <= Constants.LEVEL_B:
+            for core in coreList:
+                coreUtil = 0
+                for level in range(Constants.LEVEL_A,self.level+1):
+                    for pair in core.pairsOnCore[level]:
+                        # todo: cost should be inflated cost after ohead accounting. assumedCache should be changed to the final allocated cache size
+                        # determine util according assuming execution at this level
+                        util = allCritLevels[level].tasksThisLevel[pair[0]].allCosts[(pair[1], self.level, self.assumedCache)]/self.tasksThisLevel[pair[1]].period
+                        coreUtil += util
+                        if coreUtil > 1:
+                            return False
+        return True
+    
 def main():
     
     from taskSystem import taskSystem
@@ -330,18 +365,25 @@ def main():
     assumedCache=cacheSizeL3
 
     fileLevelA="levelA-v1.csv"
+    fileLevelB="levelB-v1.csv"
     platform=HardwarePlatform(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
     
     mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA)
     mySystem.levelA.loadSystem(fileLevelA)
     mySystem.levelA.setPairsList()
     
-    mySystem.levelA.assignToCores(Constants.WORST_FIT, platform.coreList)
-             
-                
+    print(mySystem.levelA.assignToCores(Constants.WORST_FIT, platform.coreList))
+
+    mySystem.levelB.loadSystem(fileLevelB)
+    mySystem.levelB.setPairsList()
+    print(mySystem.levelB.assignToCores(Constants.WORST_FIT, platform.coreList))
+
+    #mySystem.levelA.printCoreAssignment(platform.coreList)
+    #mySystem.levelB.printCoreAssignment(platform.coreList)
+
+    schedA = mySystem.levelA.schedulabilityTest(platform.coreList,mySystem.levels)
+    schedB = mySystem.levelB.schedulabilityTest(platform.coreList,mySystem.levels)
+    print(schedA, schedB)
+
 if __name__== "__main__":
-     main()  
-
-
-
-
+     main()

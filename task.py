@@ -20,6 +20,12 @@ class Task:
             self.currentThreadedUtil = 0
         
 
+        def __repr__(self):
+            return "ID: %s"%self.ID
+
+        def __srt__(self):
+            return "ID: %s" % self.ID
+
         
     
 
