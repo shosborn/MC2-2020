@@ -10,6 +10,7 @@ Created on Wed Apr 29 10:31:05 2020
 from makePairs import MakePairsILP
 from task import Task
 from constants import Constants
+from overheads import Overheads
 
 
 class CritLevelSystem:
@@ -155,14 +156,25 @@ class CritLevelSystem:
         :param allCritLevels: reference to a list of all criticality levels
         :return: true of false depending on schedulability
         '''
+        taskCount = 0
+        for critLevels in allCritLevels:
+            taskCount += len(critLevels.tasksThisLevel)
+        overHeads = Overheads()
+        overHeads.loadOverheadData('oheads')
+        inflatedPairs = overHeads.accountForOverhead(self.level, taskCount, coreList, allCritLevels)
         if self.level <= Constants.LEVEL_B:
+            # inflatedPairs has pair -> (period,deadline,cost)
             for core in coreList:
                 coreUtil = 0
                 for level in range(Constants.LEVEL_A,self.level+1):
+                    print("level: ",level)
                     for pair in core.pairsOnCore[level]:
-                        # todo: cost should be inflated cost after ohead accounting. assumedCache should be changed to the final allocated cache size
-                        # determine util according assuming execution at this level
-                        util = allCritLevels[level].tasksThisLevel[pair[0]].allCosts[(pair[1], self.level, self.assumedCache)]/self.tasksThisLevel[pair[1]].period
+                        # todo: cost should be inflated cost after ohead accounting (done). assumedCache should be changed to the final allocated cache size
+                        # determine util assuming execution at this level
+                        #util = allCritLevels[level].tasksThisLevel[pair[0]].allCosts[(pair[1], self.level, self.assumedCache)]/self.tasksThisLevel[pair[1]].period
+                        print(pair)
+                        util = inflatedPairs[level][pair][2]/inflatedPairs[level][pair][0]
+                        print(util)
                         coreUtil += util
                         if coreUtil > 1:
                             return False

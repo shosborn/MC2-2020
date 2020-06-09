@@ -15,18 +15,39 @@ class Constants:
 
     ASSUMED_MAX_CAPACITY = 1
 
+    #related to overheads
     #column header from overhead data file
-    overheadTypes = {'CXS': 'CXS',
-                     'ISR': 'ISR',
-                     'SCH': 'SCHED_A',
-                     'SCL': 'SCHED_C',
-                     'RLA': 'RELEASE_LATENCY_A',
-                     'RLC': 'RELEASE_LATENCY_C',
-                     'RQA': 'RELEASE',
-                     'RQC': 'RELEASE_C',
-                     'TCK': 'TICK',
-                     'SCHED': 'SCHED',
-                     'SCHED2': 'SCHED2',
+    '''
+    overheadTypes = {'CXS': 'contextSwitch',
+                     'ISR': 'interruptService',
+                     'SCH': 'schedA',
+                     'SCL': 'schedC',
+                     'RLA': 'releaseLatencyA',
+                     'RLC': 'releaseLatencyC',
+                     'RQA': 'release',
+                     'RQC': 'releaseC',
+                     'TCK': 'tick',
+                     'SCHED': 'sched',
+                     'SCHED2': 'sched2',
                      'SRD': 'SRD',
-                     'RLY': 'RELEASE_LATENCY'
+                     'RLY': 'release_latency'
                      }
+    '''
+    # overhead our name to csv file name map
+    overheadTypes = {
+                     'releaseLatency':'RLA', #delay until ISR starts execution
+                     'ipiLatency':'IPI', #delay until ipi is received
+                     'scheduling':'SCH', #process selection
+                     'contextSwitch':'CXS', #process switch
+                     'release':'RQA', #executuon of release ISR
+                     'tick':'TCK', #execution of timer tick ISR
+                     #'smtOverhead':'SMT'
+                     }
+
+    QUANTUM_LENGTH = 1000
+
+    CPMD_PER_UNIT = [0, 10, 8] #constant b^l from miccaiah et al RTSS'15, 0 for level-A (no CPMD for cyclic executive)
+
+    CPI_PER_UNIT = [0, 0, 0]#assumed to be small
+
+    SMT_COST = 1 #assuming SMT overhead as constant, need to determine whether it depends on number of tasks

@@ -28,4 +28,7 @@ class Core:
         self.L3_AB
         self.L3_B
         '''
-        
+
+    def getAssignedCache(self,criticalityLevel):
+        #use assignedCache for now
+        return self.assignedCache
