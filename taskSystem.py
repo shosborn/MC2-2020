@@ -13,7 +13,7 @@ from constants import Constants
 
 class taskSystem:
     
-    def __init__(self, totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA):
+    def __init__(self, totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA, fileLevelB, fileLevelC):
 
         self.platform=HardwarePlatform(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
         self.levelA=CritLevelSystem(Constants.LEVEL_A, assumedCache)
@@ -27,19 +27,25 @@ class taskSystem:
         coreList=self.platform.coreList
         for c in coreList:
             print(c.coreID)
-            print("Level A")
-            for p in c.pairsOnCore[Constants.LEVEL_A]:
-                task1=p[0]
-                task2=p[1]
-                period=self.levelA.tasksThisLevel[task1].period
-                cost=self.levelA.tasksThisLevel[task1].allUtil[(task2, Constants.LEVEL_A, c.assignedCache)]
-                util=float(cost/period)
-                print(task1, task2, util)
+            
+            for thisLevel in range(Constants.LEVEL_A, Constants.LEVEL_C):
+                if thisLevel==Constants.LEVEL_A:
+                    print("Level A")
+                else:
+                    print("Level B")
+                for p in c.pairsOnCore[thisLevel]:
+                    task1=p[0]
+                    task2=p[1]
+                    period=self.levels[thisLevel].tasksThisLevel[task1].period
+                    util=self.levels[thisLevel].tasksThisLevel[task1].allUtil[(task2, thisLevel, c.assignedCache)]
+                    cost=util * period
+                    print(task1, task2)
+                    print("This level: ", cost, period, util)
+                    for lowerLevel in range (thisLevel+1, Constants.LEVEL_C+1):
+                        lowerUtil=self.levels[thisLevel].tasksThisLevel[task1].allUtil[(task2, lowerLevel, c.assignedCache)]
+                        print("Next level down: ", lowerUtil)
             print()
-                # How do we know a task's level?
-                # tasks are stored as critLevel.allTasks
-                # do we want to be able to access tasks independently of their level?
-                #util=self.levelA.allTasks[task1].allCosts[(task2, Constants.LEVEL_A, ]
+
 
      # applies to Level C
     def printClusters(self):
@@ -97,12 +103,32 @@ def main():
     '''
 
     #where do I add in overheads?
-
-    # Test of level C
+    
+    #Test levels A and B
+    fileLevelA="levelA-v1.csv"
+    fileLevelB="levelB-v1.csv"
+    fileLevelC="levelC-v1.csv"
+    
+    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache,
+                        fileLevelA, fileLevelB, fileLevelC)
+    # test level A
+    mySystem.levelA.loadSystem(fileLevelA)
+    mySystem.levelA.setPairsList()
+    mySystem.levelA.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
+    print(mySystem.levelA.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
+    mySystem.printPairsByCore()
+    
+    # test level B
+    mySystem.levelB.loadSystem(fileLevelB)
+    mySystem.levelB.setPairsList()
+    mySystem.levelB.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
+    print(mySystem.levelB.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
+    mySystem.printPairsByCore()
+    '''
+    # Test of level C alone
     fileLevelC="levelC-v1.csv"
     mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelC)
     mySystem.levelC.loadSystem(fileLevelC)
-    print("Calling decideThreaded.")
     mySystem.levelC.decideThreaded()
     # print solo tasks
     print("Solo tasks:")
@@ -114,7 +140,6 @@ def main():
     for t in mySystem.levelC.threadedTasks:
         print(t.ID, t.currentThreadedUtil)
     
-    print("Calling divideCores.")
     mySystem.levelC.divideCores(mySystem.platform.coreList, coresPerComplex)
     print("Solo cores:")
     for c in mySystem.levelC.soloCores:
@@ -124,10 +149,9 @@ def main():
     for c in mySystem.levelC.threadedCores:
         print(c.coreID)
     
-    print("Calling assignTasksToClusters.")
     mySystem.levelC.assignTasksToClusters()
-    print("Finished assignTasksToClusters.")
     mySystem.printClusters()
+    '''
     
 
 

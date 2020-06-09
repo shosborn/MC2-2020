@@ -70,7 +70,7 @@ class CritLevelSystem:
                     period = relDeadline = int(arr[1])
                     newTask = Task(taskID, self.level, period, relDeadline)
                     for column in range(2, len(arr)):
-                        # add cost to newTask.allCosts with the appropriate key
+                        # add util to newTask.allUtil with the appropriate key
                         keyList = headerArr[column].split("-")
                         sibling = int(keyList[0])
                         critLevel = keyList[1]
@@ -93,6 +93,8 @@ class CritLevelSystem:
         self.thePairs = results[0]
         # do we want to track runtime?
         self.timeToPair = results[1]
+        print("Printing thePairs")
+        print(self.thePairs)
 
     #applies to crit levels A and B
     def assignToCores(self, alg, coreList):
@@ -119,12 +121,9 @@ class CritLevelSystem:
             task1=pair[0]
             task2=pair[1]
             pairUtil=self.tasksThisLevel[task1].allUtil[(task2, self.level, self.assumedCache)]
-            #pairCost=self.tasksThisLevel[task1].allCosts[(task2, self.level, self.assumedCache)]
-            #pairUtil=float(pairCost/self.tasksThisLevel[task1].period)
 
             #for c in coreList:
             for c in range(len(coreList)):
-                #pairUtil=thePairs[0].allCosts[(thePairs[1], self.level, self.assumedCache)]
                 newCoreUtil = coreList[c].utilOnCore[self.level] + pairUtil
                 if newCoreUtil <= Constants.ASSUMED_MAX_CAPACITY and newCoreUtil <= utilOnBest:
                     bestCoreSoFar = c
@@ -140,7 +139,7 @@ class CritLevelSystem:
                 coreList[bestCoreSoFar].pairsOnCore[self.level].append(pair)
                 #update lower levels utilizations upto level B on this core (can be done upto C, but may impact C's code), will be starting point for level B
                 for critLevel in range(self.level+1,Constants.LEVEL_B+1):
-                    coreList[bestCoreSoFar].utilOnCore[critLevel] += float(self.tasksThisLevel[task1].allCosts[(task2, critLevel, self.assumedCache)]/self.tasksThisLevel[task1].period)
+                    coreList[bestCoreSoFar].utilOnCore[critLevel] += self.tasksThisLevel[task1].allUtil[(task2, critLevel, self.assumedCache)]
         # returns only if all pairs could be placed on a core
         # return pairsByCore
         return True
@@ -156,8 +155,6 @@ class CritLevelSystem:
         In any cache, we need an assumed cache level to start.
         '''
         for thisTask in self.tasksThisLevel:
-            #soloCost=thisTask.allCosts[(thisTask.ID, self.level, self.assumedCache)]
-            #thisTask.currentSoloUtil = soloCost/thisTask.period
             thisTask.currentSoloUtil=thisTask.allUtil[(thisTask.ID, self.level, self.assumedCache)]
             threadedUtil=0
             for otherTask in self.tasksThisLevel:
@@ -260,27 +257,6 @@ class CritLevelSystem:
             j+=1
             #print("j=", j)
             
-        '''
-        if sizeLastSoloCluster<coresPerComplex:
-            clusterCores=[]
-            j=len(self.soloCores)
-            while j % coresPerComplex>0:
-                clusterCores.append(coreList[j])
-                j+=1
-        '''
-                
-                
-        '''
-        for i in range (numThreadedClusters):
-            clusterCores=[]
-            for j in range(i*coresPerComplex, min((i+1)*coresPerComplex, len(self.threadedCores))):
-            #j=min(len(self.soloCores), numSoloClusters*coresPerComplex*(i+1))
-            #while ((j+1) % coresPerComplex) > 0:
-                clusterCores.append(coreList[j])
-            thisCluster=Cluster(clusterCores, True)
-            self.threadedClusters.append(thisCluster)
-        '''
-
 
     #applies to level C only
     def assignTasksToClusters(self):
@@ -345,7 +321,7 @@ class CritLevelSystem:
                     for pair in core.pairsOnCore[level]:
                         # todo: cost should be inflated cost after ohead accounting. assumedCache should be changed to the final allocated cache size
                         # determine util according assuming execution at this level
-                        util = allCritLevels[level].tasksThisLevel[pair[0]].allCosts[(pair[1], self.level, self.assumedCache)]/self.tasksThisLevel[pair[1]].period
+                        util = allCritLevels[level].tasksThisLevel[pair[0]].allUtil[(pair[1], self.level, self.assumedCache)]
                         coreUtil += util
                         if coreUtil > 1:
                             return False

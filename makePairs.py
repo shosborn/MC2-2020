@@ -78,9 +78,11 @@ class MakePairsILP:
                 }
 
         expr=LinExpr()
-        # recall tasks are 0-indexed
-        for i in range(0, len(tasksThisLevel)):
-            for j in range(i, len(tasksThisLevel)):
+        # range for i needs to start at the correct point
+        startingTaskID=tasksThisLevel[0].ID
+        #startingTaskID=0
+        for i in range(startingTaskID, len(tasksThisLevel)+startingTaskID):
+            for j in range(i, len(tasksThisLevel)+startingTaskID):
                 
                 periodsMatch=(tasksThisLevel[i].period==tasksThisLevel[j].period)
                 #this part of program only runs once, with an assumed cache level
@@ -93,6 +95,7 @@ class MakePairsILP:
                 
                     #pairedUtil=pairedCost/tasksThisLevel[i].period
                     var=self.solver.addVar(lb=0, ub=1, vtype=GRB.BINARY)
+                    #problem is here; I'm giving tasks the wrong IDs
                     schedVars['taskID_1'].append(i)
                     schedVars['taskID_2'].append(j)
                     schedVars['schedVar'].append(var)
