@@ -78,14 +78,11 @@ class taskSystem:
 
         for thisCluster in self.levelC.threadedClusters:
             print("Threaded clusters:")
-            # print list of cores in cluster
             print("Cores: ", end="")
             for core in thisCluster.coresThisCluster:
                 print(core.coreID, end=" ")
             print()
-            # print higher-level usage
             print("Higher level usage: ", thisCluster.usedCapacityHigherLevels, sep=" ")
-            # print list showing (taskID, util)
             for t in thisCluster.taskList:
                 print("ID ", t.ID, ", Util ", t.currentThreadedUtil)
             print()
@@ -139,10 +136,8 @@ def main():
     
     mySystem.printPairsByCore()
 
-    '''
-    # Test of level C alone
+    # Test of level C
     fileLevelC="levelC-v1.csv"
-    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelC)
     mySystem.levelC.loadSystem(fileLevelC)
     mySystem.levelC.decideThreaded()
     # print solo tasks
@@ -166,7 +161,6 @@ def main():
     
     mySystem.levelC.assignTasksToClusters()
     mySystem.printClusters()
-    '''
     
 
 
