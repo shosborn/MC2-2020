@@ -15,7 +15,8 @@ class Core:
         self.maxCapacity = Constants.ASSUMED_MAX_CAPACITY
         # first element in list is level A
         # second is level B, + level B costs of A
-        self.utilOnCore=[0, 0]
+        # third is level C + level C costs of B and A
+        self.utilOnCore=[0, 0, 0]
         # first element will be list for level A,
         # second will be for B
         self.pairsOnCore=[[],[]]

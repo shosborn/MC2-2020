@@ -39,7 +39,46 @@ class Overheads:
 
     def montonicInterpolation(self,taskCount,costLevel,overhead):
         '''
-        interpolate overhead value of an overhead type for arbitrary task count from overhead data
+        interpolate overhead value of an overhead type for arbitrary task count from overhead data by piecewise linear interpolation
+        if task count is greater than the max task count in overhead data, then the value for max task count
+        is returned, i.e., max overhead value in the data
+        :param taskCount: number of tasks
+        :param costLevel: execution criticality level for overhead data
+        :param overhead: overhead type, column header of csv file
+        :return: interpolated value
+        '''
+
+        numTasks = list(self.overheadData[costLevel].index)
+        overheadData = self.overheadData[costLevel][overhead]
+        if taskCount < numTasks[0]:
+            return overheadData.iloc[0]
+        if taskCount > numTasks[-1]:
+            return overheadData.iloc[-1]
+        start = 0
+        end = len(numTasks)-1
+        mid = int(len(numTasks)/2)
+        while numTasks[mid] != taskCount:
+            if taskCount < numTasks[mid]:
+                end = mid-1
+            else:
+                start = mid+1
+            if start > end:
+                break
+            mid = int((start+end)/2)
+        if numTasks[mid] == taskCount:
+            return overheadData.iloc[mid]
+        if numTasks[mid] > taskCount:
+            return overheadData.iloc[mid-1] + (overheadData.iloc[mid]-overheadData.iloc[mid-1])/(numTasks[mid]-numTasks[mid-1])*\
+                   (taskCount-overheadData.iloc[mid-1])
+        if numTasks[mid] < taskCount:
+            return overheadData.iloc[mid] + (overheadData.iloc[mid+1] - overheadData.iloc[mid]) / (
+                        numTasks[mid+1] - numTasks[mid]) * \
+                   (taskCount - overheadData.iloc[mid])
+
+
+    def linearInterpolation(self,taskCount,costLevel,overhead):
+        '''
+        interpolate overhead value of an overhead type for arbitrary task count from overhead data by piecewise linear interpolation
         if task count is greater than the max task count in overhead data, then the value for max task count
         is returned, i.e., max overhead value in the data
         :param taskCount: number of tasks
@@ -177,7 +216,7 @@ class Overheads:
 
         releaseLatency = self.overheadValue['releaseLatency'][costLevel]  # Delta_ev
 
-        smtOverhead = Constants.SMT_COST
+        smtOverhead = Constants.SMT_OVERHEAD
 
         #consider all tasks at or before this level
         for critLevel in range(Constants.LEVEL_A,costLevel+1):
@@ -205,7 +244,7 @@ class Overheads:
 
                 for pair in core.pairsOnCore[critLevel]:
                     #cost assuming execution at critcality level-'level'
-                    thisPairCost = tasksThisLevel[pair[0]].allCosts[(pair[1], costLevel, cacheSize)]
+                    thisPairCost = tasksThisLevel[pair[0]].allUtil[(pair[1], costLevel, cacheSize)]*tasksThisLevel[pair[0]].period
                     if len(cpmd) <= 1:
                         thisPairCost += cost1
                     elif tasksThisLevel[pair[0]].ID == tasksThisLevel[pair1[0]].ID:

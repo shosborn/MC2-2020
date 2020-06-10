@@ -4,16 +4,23 @@ class Constants:
     LEVEL_B = 1
     LEVEL_C = 2
 
-
     # positions in allCosts key
     SIBLING = 0
     CRIT_LEVEL = 1
-    CACHE_PORTIONS=2
+    CACHE_PORTIONS = 2
 
     WORST_FIT = 0
     PERIOD_AWARE_WORST = 1
 
     ASSUMED_MAX_CAPACITY = 1
+
+    # maximum threaded util
+    '''
+    observation: making this 1 makes systems less schedulable,
+    despite 1 being the best choice to minimize total util
+    Best choice is dependent on the number of threads/ cluster?
+    '''
+    MAX_THREADED_UTIL = .7
 
     #related to overheads
     #column header from overhead data file
@@ -50,4 +57,4 @@ class Constants:
 
     CPI_PER_UNIT = [0, 0, 0]#assumed to be small
 
-    SMT_COST = 1 #assuming SMT overhead as constant, need to determine whether it depends on number of tasks
+    SMT_OVERHEAD = 1 #assuming SMT overhead as constant, need to determine whether it depends on number of tasks

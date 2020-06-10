@@ -44,11 +44,11 @@ class MakePairsILP:
             if self.schedVarsP['schedVar'].iloc[k].x==1:
                 i=self.schedVarsP['taskID_1'].iloc[k]
                 j=self.schedVarsP['taskID_2'].iloc[k]
-                pairPeriod=curSystem.tasksThisLevel[i].period
-                pairCost=self.curSystem.tasksThisLevel[i].allCosts[(j, 
+                #pairPeriod=curSystem.tasksThisLevel[i].period
+                pairUtil=self.curSystem.tasksThisLevel[i].allUtil[(j, 
                                                                curSystem.level, 
                                                                curSystem.assumedCache)]
-                thisPair=(i, j, float(pairCost/pairPeriod))
+                thisPair=(i, j, float(pairUtil))
                 thePairs.append(thisPair)
         return (thePairs, self.solver.runtime)
     
@@ -78,21 +78,24 @@ class MakePairsILP:
                 }
 
         expr=LinExpr()
-        # recall tasks are 0-indexed
-        for i in range(0, len(tasksThisLevel)):
-            for j in range(i, len(tasksThisLevel)):
+        # range for i needs to start at the correct point
+        startingTaskID=tasksThisLevel[0].ID
+        startingTaskID=0
+        for i in range(startingTaskID, len(tasksThisLevel)+startingTaskID):
+            for j in range(i, len(tasksThisLevel)+startingTaskID):
                 
                 periodsMatch=(tasksThisLevel[i].period==tasksThisLevel[j].period)
                 #this part of program only runs once, with an assumed cache level
                 myTask=tasksThisLevel[i]
                 #print(myTask.allCosts)
                 #pairedCost=system.tasksThisLevel[i].allCosts[(j, system.level, system.assumedCache)]
-                pairedCost=myTask.allCosts[(j, system.level, system.assumedCache)]
+                pairedUtil=myTask.allUtil[(j, system.level, system.assumedCache)]
                 
-                if periodsMatch and pairedCost<=tasksThisLevel[i].period:
+                if periodsMatch and pairedUtil<=1:
                 
-                    pairedUtil=pairedCost/tasksThisLevel[i].period
+                    #pairedUtil=pairedCost/tasksThisLevel[i].period
                     var=self.solver.addVar(lb=0, ub=1, vtype=GRB.BINARY)
+                    #problem is here; I'm giving tasks the wrong IDs
                     schedVars['taskID_1'].append(i)
                     schedVars['taskID_2'].append(j)
                     schedVars['schedVar'].append(var)
