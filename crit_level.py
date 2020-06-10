@@ -107,6 +107,7 @@ class CritLevelSystem:
         # to-do: implement a second method for period-aware worst-fit
         # should this change each core's list of tasks?
         # using 0-indexed cores
+        startingTaskID=self.tasksThisLevel[0].ID
         if len(self.thePairs) == 0:
             raise NotImplementedError
 
@@ -120,7 +121,7 @@ class CritLevelSystem:
             utilOnBest = Constants.ASSUMED_MAX_CAPACITY
             task1=pair[0]
             task2=pair[1]
-            pairUtil=self.tasksThisLevel[task1].allUtil[(task2, self.level, self.assumedCache)]
+            pairUtil=self.tasksThisLevel[task1-startingTaskID].allUtil[(task2, self.level, self.assumedCache)]
 
             #for c in coreList:
             for c in range(len(coreList)):
@@ -139,7 +140,7 @@ class CritLevelSystem:
                 coreList[bestCoreSoFar].pairsOnCore[self.level].append(pair)
                 #update lower levels utilizations upto level B on this core (can be done upto C, but may impact C's code), will be starting point for level B
                 for critLevel in range(self.level+1,Constants.LEVEL_B+1):
-                    coreList[bestCoreSoFar].utilOnCore[critLevel] += self.tasksThisLevel[task1].allUtil[(task2, critLevel, self.assumedCache)]
+                    coreList[bestCoreSoFar].utilOnCore[critLevel] += self.tasksThisLevel[task1-startingTaskID].allUtil[(task2, critLevel, self.assumedCache)]
         # returns only if all pairs could be placed on a core
         # return pairsByCore
         return True
@@ -314,6 +315,7 @@ class CritLevelSystem:
         :param allCritLevels: reference to a list of all criticality levels
         :return: true of false depending on schedulability
         '''
+        startingTaskID=self.tasksThisLevel[0].ID
         if self.level <= Constants.LEVEL_B:
             for core in coreList:
                 coreUtil = 0
@@ -321,7 +323,7 @@ class CritLevelSystem:
                     for pair in core.pairsOnCore[level]:
                         # todo: cost should be inflated cost after ohead accounting. assumedCache should be changed to the final allocated cache size
                         # determine util according assuming execution at this level
-                        util = allCritLevels[level].tasksThisLevel[pair[0]].allUtil[(pair[1], self.level, self.assumedCache)]
+                        util = allCritLevels[level].tasksThisLevel[pair[0]-startingTaskID].allUtil[(pair[1], self.level, self.assumedCache)]
                         coreUtil += util
                         if coreUtil > 1:
                             return False
