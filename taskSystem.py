@@ -22,6 +22,9 @@ class taskSystem:
 
         self.levels = []
         self.levels.extend([self.levelA,self.levelB])
+        
+        print("Initial list of levels:")
+        print(self.levels)
 
     def printPairsByCore(self):
         coreList=self.platform.coreList
@@ -29,20 +32,29 @@ class taskSystem:
             print(c.coreID)
             
             for thisLevel in range(Constants.LEVEL_A, Constants.LEVEL_C):
+                #print(self.levels[thisLevel].tasksThisLevel)
+                print("thisLevel=", thisLevel)
+                #print(self.levels)
+                print("Getting startingTaskID")
+                # tasksThisLevel either doesn't exist or is empty if level hasn't been loaded
+                
+                startingTaskID=self.levels[thisLevel].tasksThisLevel[0].ID
+                print("startingTaskID=", startingTaskID)
                 if thisLevel==Constants.LEVEL_A:
                     print("Level A")
                 else:
                     print("Level B")
                 for p in c.pairsOnCore[thisLevel]:
+                    # task1 and task2 are task IDs
                     task1=p[0]
                     task2=p[1]
-                    period=self.levels[thisLevel].tasksThisLevel[task1].period
-                    util=self.levels[thisLevel].tasksThisLevel[task1].allUtil[(task2, thisLevel, c.assignedCache)]
+                    period=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].period
+                    util=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].allUtil[(task2, thisLevel, c.assignedCache)]
                     cost=util * period
                     print(task1, task2)
                     print("This level: ", cost, period, util)
                     for lowerLevel in range (thisLevel+1, Constants.LEVEL_C+1):
-                        lowerUtil=self.levels[thisLevel].tasksThisLevel[task1].allUtil[(task2, lowerLevel, c.assignedCache)]
+                        lowerUtil=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].allUtil[(task2, lowerLevel, c.assignedCache)]
                         print("Next level down: ", lowerUtil)
             print()
 
@@ -66,14 +78,11 @@ class taskSystem:
 
         for thisCluster in self.levelC.threadedClusters:
             print("Threaded clusters:")
-            # print list of cores in cluster
             print("Cores: ", end="")
             for core in thisCluster.coresThisCluster:
                 print(core.coreID, end=" ")
             print()
-            # print higher-level usage
             print("Higher level usage: ", thisCluster.usedCapacityHigherLevels, sep=" ")
-            # print list showing (taskID, util)
             for t in thisCluster.taskList:
                 print("ID ", t.ID, ", Util ", t.currentThreadedUtil)
             print()
@@ -116,18 +125,19 @@ def main():
     mySystem.levelA.setPairsList()
     mySystem.levelA.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
     print(mySystem.levelA.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
-    mySystem.printPairsByCore()
+    #mySystem.printPairsByCore()
     
     # test level B
     mySystem.levelB.loadSystem(fileLevelB)
     mySystem.levelB.setPairsList()
     mySystem.levelB.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
     print(mySystem.levelB.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
+   
+    
     mySystem.printPairsByCore()
-    '''
-    # Test of level C alone
+
+    # Test of level C
     fileLevelC="levelC-v1.csv"
-    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelC)
     mySystem.levelC.loadSystem(fileLevelC)
     mySystem.levelC.decideThreaded()
     # print solo tasks
@@ -151,7 +161,6 @@ def main():
     
     mySystem.levelC.assignTasksToClusters()
     mySystem.printClusters()
-    '''
     
 
 
