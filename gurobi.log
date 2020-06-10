@@ -1,0 +1,38 @@
+
+Gurobi 8.1.1 (win64, Python) logging started 06/01/20 16:58:26
+
+Academic license - for non-commercial use only
+Changed value of parameter TimeLimit to 60.0
+   Prev: 1e+100  Min: 0.0  Max: 1e+100  Default: 1e+100
+Changed value of parameter SolutionLimit to 1000
+   Prev: 2000000000  Min: 1  Max: 2000000000  Default: 2000000000
+Parameter Threads unchanged
+   Value: 0  Min: 0  Max: 1024  Default: 0
+Optimize a model with 9 rows, 15 columns and 35 nonzeros
+Variable types: 1 continuous, 14 integer (14 binary)
+Coefficient statistics:
+  Matrix range     [1e-01, 1e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Found heuristic solution: objective 2.9900000
+Presolve removed 6 rows and 9 columns
+Presolve time: 0.01s
+Presolved: 3 rows, 6 columns, 9 nonzeros
+Found heuristic solution: objective 2.4600000
+Variable types: 0 continuous, 6 integer (6 binary)
+
+Root relaxation: cutoff, 3 iterations, 0.00 seconds
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0     cutoff    0         2.46000    2.46000  0.00%     -    0s
+
+Explored 0 nodes (3 simplex iterations) in 0.03 seconds
+Thread count was 8 (of 8 available processors)
+
+Solution count 1: 2.46 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.460000000000e+00, best bound 2.460000000000e+00, gap 0.0000%

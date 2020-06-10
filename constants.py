@@ -15,6 +15,15 @@ class Constants:
 
     ASSUMED_MAX_CAPACITY = 1
 
+    
+    # maximum threaded util
+    '''
+    observation: making this 1 makes systems less schedulable,
+    despite 1 being the best choice to minimize total util
+    Best choice is dependent on the number of threads/ cluster?
+    '''
+    MAX_THREADED_UTIL = .7
+
     #column header from overhead data file
     overheadTypes = {'CXS': 'CXS',
                      'ISR': 'ISR',

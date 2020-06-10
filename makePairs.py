@@ -27,28 +27,37 @@ class MakePairsILP:
     def __init__(self, curSystem):
         self.solver=Model()
         self.curSystem=curSystem
+        self.startingTaskID=curSystem.tasksThisLevel[0].ID
 
     
     def makePairs(self):
         self.setSolverParams()
+        #print("completed setSolverParams")
         self.schedVarsP=self.createSchedVarsAndSetObj()
+        #print("completed createdSchedVars")
         self.requireAllJobsScheduled()
+        #print("completed requireAllJobsScheduled")
         self.solver.optimize()
+        #print("completed optimize.")
+        #print(self.schedVarsP)
         
         #Return a list showing all pairs
         #Note some items are paired with themselves
         curSystem=self.curSystem
 
+
+        #fix i values here
+        
         thePairs=[]
         for k in range(len(self.schedVarsP.index)):
             if self.schedVarsP['schedVar'].iloc[k].x==1:
                 i=self.schedVarsP['taskID_1'].iloc[k]
                 j=self.schedVarsP['taskID_2'].iloc[k]
-                pairPeriod=curSystem.tasksThisLevel[i].period
-                pairCost=self.curSystem.tasksThisLevel[i].allCosts[(j, 
+                #pairPeriod=curSystem.tasksThisLevel[i].period
+                pairUtil=self.curSystem.tasksThisLevel[i-self.startingTaskID].allUtil[(j, 
                                                                curSystem.level, 
                                                                curSystem.assumedCache)]
-                thisPair=(i, j, float(pairCost/pairPeriod))
+                thisPair=(i, j, float(pairUtil))
                 thePairs.append(thisPair)
         return (thePairs, self.solver.runtime)
     
@@ -78,7 +87,9 @@ class MakePairsILP:
                 }
 
         expr=LinExpr()
-        # recall tasks are 0-indexed
+        # range for i needs to start at the correct point
+        # startingTaskID=tasksThisLevel[0].ID
+        # startingTaskID=1
         for i in range(0, len(tasksThisLevel)):
             for j in range(i, len(tasksThisLevel)):
                 
@@ -87,14 +98,15 @@ class MakePairsILP:
                 myTask=tasksThisLevel[i]
                 #print(myTask.allCosts)
                 #pairedCost=system.tasksThisLevel[i].allCosts[(j, system.level, system.assumedCache)]
-                pairedCost=myTask.allCosts[(j, system.level, system.assumedCache)]
+                pairedUtil=myTask.allUtil[(j+self.startingTaskID, system.level, system.assumedCache)]
                 
-                if periodsMatch and pairedCost<=tasksThisLevel[i].period:
+                if periodsMatch and pairedUtil<=1:
                 
-                    pairedUtil=pairedCost/tasksThisLevel[i].period
+                    #pairedUtil=pairedCost/tasksThisLevel[i].period
                     var=self.solver.addVar(lb=0, ub=1, vtype=GRB.BINARY)
-                    schedVars['taskID_1'].append(i)
-                    schedVars['taskID_2'].append(j)
+                    #problem is here; I'm giving tasks the wrong IDs
+                    schedVars['taskID_1'].append(i+self.startingTaskID)
+                    schedVars['taskID_2'].append(j+self.startingTaskID)
                     schedVars['schedVar'].append(var)
 
                     expr += var * pairedUtil
@@ -112,7 +124,8 @@ class MakePairsILP:
     def requireAllJobsScheduled (self):
         system=self.curSystem
         for i in range(len(system.tasksThisLevel)):
-            schedVarsThisTask=self.schedVarsP[(self.schedVarsP['taskID_1']==i) | (self.schedVarsP['taskID_2']==i) ]
+            schedVarsThisTask=self.schedVarsP[(self.schedVarsP['taskID_1']==i+self.startingTaskID) | 
+                    (self.schedVarsP['taskID_2']==i + self.startingTaskID) ]
             expr=LinExpr()
             for k in range(len(schedVarsThisTask.index)):
                 expr += schedVarsThisTask['schedVar'].iloc[k]
