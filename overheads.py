@@ -2,6 +2,7 @@ from csv import DictReader
 from collections import defaultdict
 from constants import Constants
 import pandas as pd
+import math
 from task import Task
 
 
@@ -79,8 +80,8 @@ class Overheads:
     def linearInterpolation(self,taskCount,costLevel,overhead):
         '''
         interpolate overhead value of an overhead type for arbitrary task count from overhead data by piecewise linear interpolation
-        if task count is greater than the max task count in overhead data, then the value for max task count
-        is returned, i.e., max overhead value in the data
+        if task count is greater than the max task count in overhead data,
+        then the value is linearly interplated using median task count and max task count
         :param taskCount: number of tasks
         :param costLevel: execution criticality level for overhead data
         :param overhead: overhead type, column header of csv file
@@ -92,7 +93,9 @@ class Overheads:
         if taskCount < numTasks[0]:
             return overheadData.iloc[0]
         if taskCount > numTasks[-1]:
-            return overheadData.iloc[-1]
+            mid = int(len(numTasks)/2)
+            return overheadData.iloc[mid] + (overheadData.iloc[-1]-overheadData.iloc[mid])/(numTasks[-1]-numTasks[mid])*\
+                   (taskCount-overheadData.iloc[mid])
         start = 0
         end = len(numTasks)-1
         mid = int(len(numTasks)/2)
@@ -132,7 +135,6 @@ class Overheads:
         '''
         calculate cache related preemption and migration delay.
         wss is assumed to be stored in task.py
-        todo: for level-A, -B, cachesize can be be found from its assigned core?
         :param pairs: pairs of criticality level-'taskLevel' assigned to a core/ core-complex
         :param tasks: all tasks at the criticality level-'taskLevel' (pairs criticality level)
         :param taskLevel: criticality level of pairs (not used)
@@ -142,20 +144,34 @@ class Overheads:
         '''
         #pairWSS = [(pair, pair[0].wss if pair[0]==pair[1] else pair[0].wss+pair[1].wss) for pair in pairs]
 
+        #list of tuples containing pair and maximum wss between the tasks of the pair (max wss size is assumed to determine the delay, with parallel execution of threads)
+        #for solo task pair contains same task in pair[0] and pair[1]
         pairWSS = [(pair, max(tasks[pair[0]].wss,tasks[pair[1]].wss)) for pair in pairs]
+
+        #sore in non-increasing order of wss size
         pairWSS.sort(key=lambda tuple: tuple[1], reverse=True)
         '''for pair in pairWSS:
             print(pair[0][0].ID,pair[0][1].ID,pair[1])
         '''
+
+        #list of (pair,cpmd_cost), it will contain at most two such tuples (0 if no pair in this core, 1 if 1 pair in this core, 2 otherwise)
+        #1st tuple for the cost of the maximum wss size among the pairs (this will be the overhead for every pair other than the pair having max wss)
+        #2nd tuple for the cost of the 2nd maximum wss size among the pairs (this will be the overhead for the pair having max wss)
         cpmd = []
-        if len(pairWSS) == 1:
+
+        #at least one pair in this core (/cluster: to be modified)
+        if len(pairWSS) > 0:
+            #if cache size is less than wss, then delay is assumed to be 0, cache may not help
             if pairWSS[0][1] > cacheSize:
                 cpmd.append((pairWSS[0][0],0))
+            #a tuple of the pair having max wss and its cpmd cost is appended in cpmd list
             else:
                 cpmd.append((pairWSS[0][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[0][1]))
+        #more than one pair in this core
         if len(pairWSS) > 1:
             if pairWSS[1][1] > cacheSize:
                 cpmd.append((pairWSS[1][0],0))
+            # a tuple of the pair having 2nd max wss and its cpmd cost is appended in cpmd list
             else:
                 cpmd.append((pairWSS[1][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[1][1]))
         return cpmd
