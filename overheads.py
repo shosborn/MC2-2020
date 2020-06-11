@@ -162,19 +162,20 @@ class Overheads:
 
         #at least one pair in this core (/cluster: to be modified)
         if len(pairWSS) > 0:
-            #if cache size is less than wss, then delay is assumed to be 0, cache may not help
-            if pairWSS[0][1] > cacheSize:
-                cpmd.append((pairWSS[0][0],0))
+            #ignore<if cache size is less than wss, then delay is assumed to be 0, cache may not help
+            #if pairWSS[0][1] > cacheSize:
+            #    cpmd.append((pairWSS[0][0],0))
+            # else:>
             #a tuple of the pair having max wss and its cpmd cost is appended in cpmd list
-            else:
-                cpmd.append((pairWSS[0][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[0][1]))
+
+            cpmd.append((pairWSS[0][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[0][1]))
         #more than one pair in this core
         if len(pairWSS) > 1:
-            if pairWSS[1][1] > cacheSize:
-                cpmd.append((pairWSS[1][0],0))
+            #if pairWSS[1][1] > cacheSize:
+            #cpmd.append((pairWSS[1][0],0))
+            # else:
             # a tuple of the pair having 2nd max wss and its cpmd cost is appended in cpmd list
-            else:
-                cpmd.append((pairWSS[1][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[1][1]))
+            cpmd.append((pairWSS[1][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[1][1]))
         return cpmd
 
     def irqCosts(self,costLevel,dedicatedIRQ,allCriticalityLevels):
