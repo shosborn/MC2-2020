@@ -105,7 +105,8 @@ class Cluster:
             sortedTasks = sorted(self.taskList, key=lambda x: x.currentThreadedUtil, reverse=True)
             sumLargest = 0
             for t in range(min(m, len(self.taskList))):
-                sumLargest = sumLargest + sortedTasks[t].currentSoloUtil
-            if (m - 1) * sortedTasks[0].currentSoloUtil + sumLargest + self.usedCapacityHigherLevels >= m:
+                #sumLargest = sumLargest + sortedTasks[t].currentSoloUtil #should be currentThrededUtil?
+                sumLargest = sumLargest + sortedTasks[t].currentThreadedUtil
+            if (m - 1) * sortedTasks[0].currentThreadedUtil + sumLargest + self.usedCapacityHigherLevels >= m:  #should be currentThrededUtil?
                 return False
             return True

@@ -70,6 +70,7 @@ class CritLevelSystem:
                     #print("taskID=", taskID)
                     period = relDeadline = int(arr[1])
                     newTask = Task(taskID, self.level, period, relDeadline)
+                    #newTask = Task(taskID, self.level, period*100, relDeadline*100)
                     for column in range(2, len(arr)):
                         # add util to newTask.allUtil with the appropriate key
                         keyList = headerArr[column].split("-")
@@ -303,51 +304,112 @@ class CritLevelSystem:
 
     def printCoreAssignment(self,coreList):
         critLevel = self.level
+        startingTaskID = self.tasksThisLevel[0].ID
         for c in range(len(coreList)):
             print("core: ",c)
             for pair in coreList[c].pairsOnCore[self.level]:
-                print("<",self.tasksThisLevel[pair[0]].ID,",",self.tasksThisLevel[pair[1]].ID,">",end=" ")
+                print("<",self.tasksThisLevel[pair[0]-startingTaskID].ID,",",self.tasksThisLevel[pair[1]-startingTaskID].ID,">",end=" ")
             print(coreList[c].utilOnCore[self.level])
 
-    def schedulabilityTest(self,coreList,allCritLevels):
+    def schedulabilityTest(self, coreList, allCritLevels):
+        if Constants.OVERHEAD_ACCOUNT:
+            return self.schedulabilityTestOverhead(coreList,allCritLevels)
+        else:
+            return self.schedulabilityTestNoOverhead(coreList,allCritLevels)
+
+
+    def schedulabilityTestOverhead(self,coreList,allCritLevels):
         '''
         perform schedulability test at this criticality level
         :param coreList: List of cores
         :param allCritLevels: reference to a list of all criticality levels
         :return: true of false depending on schedulability
         '''
-
         taskCount = 0
         for critLevels in allCritLevels:
             taskCount += len(critLevels.tasksThisLevel)
         overHeads = Overheads()
         overHeads.loadOverheadData('oheads')
-        inflatedPairs = overHeads.accountForOverhead(self.level, taskCount, coreList, allCritLevels)
-        
-        startingTaskID=self.tasksThisLevel[0].ID
-        
+
+
         if self.level <= Constants.LEVEL_B:
-            # inflatedPairs has pair -> (period,deadline,cost)
+            inflatedUtils = overHeads.accountForOverhead(self.level, taskCount, coreList, None, allCritLevels,
+                                                         Constants.IS_DEDICATED_IRQ)
+            print("sched test level: ", self.level, " task count:", taskCount)
             for core in coreList:
                 coreUtil = 0
                 for level in range(Constants.LEVEL_A,self.level+1):
-                    print("level: ",level)
                     for pair in core.pairsOnCore[level]:
                         # todo: cost should be inflated cost after ohead accounting (done). assumedCache should be changed to the final allocated cache size
                         # determine util assuming execution at this level
                         #util = allCritLevels[level].tasksThisLevel[pair[0]].allCosts[(pair[1], self.level, self.assumedCache)]/self.tasksThisLevel[pair[1]].period
-                        print(pair)
-                        util = inflatedPairs[level][pair][2]/inflatedPairs[level][pair][0]
-                        print(util)
-                        # todo: cost should be inflated cost after ohead accounting. assumedCache should be changed to the final allocated cache size
-                        # determine util according assuming execution at this level
-                        # util = allCritLevels[level].tasksThisLevel[pair[0]-startingTaskID].allUtil[(pair[1], self.level, self.assumedCache)]
-
+                        startingTaskID = allCritLevels[level].tasksThisLevel[0].ID
+                        util = inflatedUtils[level][pair]
                         coreUtil += util
                         if coreUtil > 1:
                             return False
+        else:
+            allClusters = self.soloClusters + self.threadedClusters
+            print("sched test level: ", self.level, " task count:", taskCount)
+            inflatedUtils = overHeads.accountForOverhead(self.level, taskCount, coreList, allClusters, allCritLevels,
+                                                         Constants.IS_DEDICATED_IRQ)
+
+            print(len(allClusters), len(self.soloClusters), len(self.threadedClusters))
+
+            for cluster in allClusters:
+                totalUtil = [0, 0, 0]
+                numCore = len(cluster.coresThisCluster)
+                for level in range(Constants.LEVEL_A, Constants.LEVEL_B + 1):
+                    for core in cluster.coresThisCluster:
+                        for pair in core.pairsOnCore[level]:
+                            util = inflatedUtils[level][pair]
+                            totalUtil[level] += util
+
+
+                sortedTask = sorted(cluster.taskList, key=lambda task: inflatedUtils[self.level][(task.ID,task.ID)], reverse=True)
+                h = inflatedUtils[self.level][(sortedTask[0].ID,sortedTask[0].ID)]
+                H, index = 0, 1
+                for task in sortedTask:
+                    util = inflatedUtils[self.level][(task.ID,task.ID)]
+                    totalUtil[self.level] += util
+                    if index <= numCore - 1:
+                        H += util
+                    index += 1
+
+                if totalUtil[Constants.LEVEL_A] + totalUtil[Constants.LEVEL_B] + totalUtil[Constants.LEVEL_C] > numCore:
+                    return False
+                if totalUtil[Constants.LEVEL_A] + totalUtil[Constants.LEVEL_B] + (numCore-1)*h + H >= numCore:
+                    return False
         return True
-    
+
+    def schedulabilityTestNoOverhead(self, coreList, allCritLevels):
+        '''
+        Schedulability test without accounting for overheads
+        :param coreList:
+        :param allCritLevels:
+        :return:
+        '''
+        if self.level <= Constants.LEVEL_B:
+            for core in coreList:
+                coreUtil = 0
+                for level in range(Constants.LEVEL_A,self.level+1):
+                    for pair in core.pairsOnCore[level]:
+                        # todo: cost should be inflated cost after ohead accounting (done). assumedCache should be changed to the final allocated cache size
+                        # determine util assuming execution at this level
+                        #util = allCritLevels[level].tasksThisLevel[pair[0]].allCosts[(pair[1], self.level, self.assumedCache)]/self.tasksThisLevel[pair[1]].period
+                        startingTaskID = allCritLevels[level].tasksThisLevel[0].ID
+                        cacheSize = core.getAssignedCache(level)
+                        util = allCritLevels[level].tasksThisLevel[pair[0]-startingTaskID].allUtil[(pair[1], self.level, cacheSize)]
+                        coreUtil += util
+                        if coreUtil > 1:
+                            return False
+        else:
+            allClusters = self.soloClusters + self.threadedClusters
+            for cluster in allClusters:
+                if not cluster.schedTestNoOverheads():
+                    return False
+        return True
+
 def main():
     
     from taskSystem import taskSystem
@@ -376,12 +438,12 @@ def main():
     mySystem.levelB.setPairsList()
     print(mySystem.levelB.assignToCores(Constants.WORST_FIT, platform.coreList))
 
-    #mySystem.levelA.printCoreAssignment(platform.coreList)
+    mySystem.levelA.printCoreAssignment(platform.coreList)
     #mySystem.levelB.printCoreAssignment(platform.coreList)
 
-    schedA = mySystem.levelA.schedulabilityTest(platform.coreList,mySystem.levels)
+    #schedA = mySystem.levelA.schedulabilityTest(platform.coreList,mySystem.levels)
     schedB = mySystem.levelB.schedulabilityTest(platform.coreList,mySystem.levels)
-    print(schedA, schedB)
+    print(schedB)
 
 if __name__== "__main__":
      main()

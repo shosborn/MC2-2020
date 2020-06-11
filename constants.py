@@ -46,7 +46,7 @@ class Constants:
                      'ipiLatency':'IPI', #delay until ipi is received
                      'scheduling':'SCH', #process selection
                      'contextSwitch':'CXS', #process switch
-                     'release':'RQA', #executuon of release ISR
+                     'release':'RQA', #execution of release ISR
                      'tick':'TCK', #execution of timer tick ISR
                      #'smtOverhead':'SMT'
                      }
@@ -58,3 +58,7 @@ class Constants:
     CPI_PER_UNIT = [0, 0, 0]#assumed to be small
 
     SMT_OVERHEAD = 1 #assuming SMT overhead as constant, need to determine whether it depends on number of tasks
+
+    IS_DEDICATED_IRQ = False
+
+    OVERHEAD_ACCOUNT = True

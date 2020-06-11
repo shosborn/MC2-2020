@@ -21,7 +21,7 @@ class taskSystem:
         self.levelC=CritLevelSystem(Constants.LEVEL_C, assumedCache)
 
         self.levels = []
-        self.levels.extend([self.levelA,self.levelB])
+        self.levels.extend([self.levelA,self.levelB,self.levelC])
         
         print("Initial list of levels:")
         print(self.levels)
@@ -161,7 +161,7 @@ def main():
     
     mySystem.levelC.assignTasksToClusters()
     mySystem.printClusters()
-    
+    print(mySystem.levelC.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
 
 
 

@@ -88,17 +88,11 @@ class MakePairsILP:
 
         expr=LinExpr()
         # range for i needs to start at the correct point
-<<<<<<< HEAD
-        startingTaskID=tasksThisLevel[0].ID
-        startingTaskID=0
-        for i in range(startingTaskID, len(tasksThisLevel)+startingTaskID):
-            for j in range(i, len(tasksThisLevel)+startingTaskID):
-=======
+
         # startingTaskID=tasksThisLevel[0].ID
         # startingTaskID=1
         for i in range(0, len(tasksThisLevel)):
             for j in range(i, len(tasksThisLevel)):
->>>>>>> 9e615cb625757dd55beb1b59e872235bf4e73848
                 
                 periodsMatch=(tasksThisLevel[i].period==tasksThisLevel[j].period)
                 #this part of program only runs once, with an assumed cache level
