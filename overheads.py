@@ -11,7 +11,7 @@ class Overheads:
     def __init__(self):
         self.overheadData = None
         self.overheadValue = defaultdict()
-        for key in Constants.overheadTypes:
+        for key in Constants.OVERHEAD_TYPES:
             self.overheadValue[key] = defaultdict()
             for level in range(Constants.LEVEL_A,Constants.LEVEL_C+1):
                 self.overheadValue[key][level] = defaultdict()
@@ -178,6 +178,32 @@ class Overheads:
             cpmd.append((pairWSS[1][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[1][1]))
         return cpmd
 
+    def getCPMDLevelA(self,pairs,tasks,taskLevel,costLevel,cacheSize):
+        '''
+        task-centric accounting of level-A according to N.Kim et al real-time systems journal paper.
+        This is used when MC^2 use budgeted implementation for level-A tasks
+        If PET for all job-slices of level-A can be predetermined, then 0 CPMD cost for level-A can be used.
+        :param pairs: pairs of criticality level-'taskLevel' assigned to a core/ core-complex
+        :param tasks: all tasks at the criticality level-'taskLevel' (pairs criticality level)
+        :param taskLevel: criticality level of pairs (not used)
+        :param costLevel: criticality level of execution
+        :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
+        :return: A dictionary of pair->cpmd cost
+        '''
+        cpmd = {}
+        if len(pairs) == 0:
+            return cpmd
+        startingTaskID = tasks[0].ID
+        minPeriod = tasks[pairs[0][0]-startingTaskID].period
+        for pair in pairs:
+            minPeriod = min(minPeriod,tasks[pair[0]-startingTaskID].period)
+        for pair in pairs:
+            s_i = tasks[pair[0]-startingTaskID].period / minPeriod  #n.kim et al journal paper page 27
+            inflation = (s_i - 1) * tasks[pair[0]-startingTaskID].wss * Constants.CPMD_PER_UNIT[costLevel]
+            cpmd[pair] = inflation
+        return cpmd
+
+
     def irqCosts(self,costLevel,dedicatedIRQ,allCriticalityLevels):
         '''
         compute values to account irq overheads
@@ -221,8 +247,8 @@ class Overheads:
         inflatedUtils = defaultdict()
 
         # get approximation of overhead values from csv file for this level
-        for oheadName in Constants.overheadTypes:
-            oHeadCode = Constants.overheadTypes[oheadName]
+        for oheadName in Constants.OVERHEAD_TYPES:
+            oHeadCode = Constants.OVERHEAD_TYPES[oheadName]
             self.overheadValue[oheadName][costLevel] = self.getOverheadValue(taskCount,costLevel,oHeadCode)
         # determine relevant parameters for irq
         denominator,cPre = self.irqCosts(costLevel,dedicatedIRQ,allCriticalityLevels)
@@ -260,6 +286,7 @@ class Overheads:
                     cacheSize = cluster.coresThisCluster[0].getAssignedCache(critLevel)
 
                 pairs = []
+                # for level-C construct pseudo-pairs for adapting level-A,-B cpmd cost code
                 if critLevel == Constants.LEVEL_C:
                     for task in cluster.taskList:
                         pairs.append((task.ID,task.ID))
@@ -269,22 +296,26 @@ class Overheads:
                 #get cpmd cost assuming execution at criticality level 'level' for tasks at 'critLevel' assigned to this 'core'
                 #level-A tasks have 0 CPMD due to being cyclic executing, assuming no overlapping cache like miccaiah et al. rtss'15
                 if critLevel == Constants.LEVEL_A:
-                    cpmd = [] #no cpmd, cost will be 0 as len(cpmd) <= 1
+                    # decide which of the below to use
+                    # for budgeted implementation of cyclic executing. ref. n.kim journal paper 2017
+                    cpmd = self.getCPMDLevelA(pairs, tasksCritLevel, critLevel, costLevel, cacheSize)
+                    # no cpmd, cost will be 0 as len(cpmd) <= 1. ref. micaiah rtss paper 2015
+                    #cpmd = []
                 else:
                     cpmd = self.getCPMD(pairs,tasksCritLevel,critLevel,costLevel,cacheSize)
 
-                #costs of scheduling+ctx_switch_cpmd for the two pairs in the core having largest cpmd cost
-                #smt overhead is considered similar as sched overhead
-                #cost1 is used for any pair other than pair1
-                #cost2 is used for pair1
-                if len(cpmd) <= 1:
-                    pair1, cost1 = None, 0 + 2 * (schedOverhead + contextSwitch + smtOverhead) #only one task, no cpmd
-                    #print("cpmd: ",0)
-                else:
-                    pair1, cost1 = cpmd[0][0], cpmd[0][1] + 2 * (schedOverhead + contextSwitch + smtOverhead)
-                    #print("cpmd: ", cpmd[0][1])
-                    pair2, cost2 = cpmd[1][0], cpmd[1][1] + 2 * (schedOverhead + contextSwitch + smtOverhead)
-                    #print("cpmd: ", cpmd[1][1])
+                    #costs of cpmd for the two pairs in the core having largest cpmd cost
+                    #cost1 is used for any pair other than pair1
+                    #cost2 is used for pair1
+                    if len(cpmd) <= 1:
+                        pair1, cost1 = None, 0 #only one task, no cpmd
+                        #print("cpmd: ",0)
+                    else:
+                        pair1, cost1 = cpmd[0][0], cpmd[0][1]
+                        #print("cpmd: ", cpmd[0][1])
+                        pair2, cost2 = cpmd[1][0], cpmd[1][1]
+                        #print("cpmd: ", cpmd[1][1])
+
 
                 for pair in pairs:
                     #cost of this task/pair assuming execution at critcality level-'level'
@@ -298,17 +329,35 @@ class Overheads:
                         thisPairCost = tasksCritLevel[pair[0] - startingTaskID].currentSoloUtil * \
                                        tasksCritLevel[pair[0] - startingTaskID].period
 
-                    if len(cpmd) <= 1:
-                        thisPairCost += cost1 #cost1 will be 0
-                    elif pair[0] == pair1[0]:
-                        thisPairCost += cost2
+                    #add cpmd overhead
+                    if critLevel == Constants.LEVEL_A:
+                        #if budgeted implementation n.kim journal 2017
+                        thisPairCost += cpmd[pair]
+                        #if job slicing point known micaiah rtss 2015
+                        #thisPairCost += 0
                     else:
-                        thisPairCost += cost1
+                        if len(cpmd) <= 1:
+                            thisPairCost += cost1 #cost1 will be 0
+                        elif pair[0] == pair1[0]:
+                            thisPairCost += cost2
+                        else:
+                            thisPairCost += cost1
 
+                    #add for sched and ctx overhead
+                    thisPairCost += 2 * (schedOverhead + contextSwitch)
+
+                    # add for smt overhead
+                    # smt overhead is considered similar as sched overhead
+                    # smt overhead only for level-A,-B tasks. for level-C tasks clusters are either threaded or non-threaded
+                    # so preemption due to level-C tasks do not need any smt turning off or on
+                    if critLevel <= Constants.LEVEL_B:
+                        thisPairCost += smtOverhead
+
+                    #inflate for isr
                     thisPairCost /= denominator
 
                     if critLevel <= Constants.LEVEL_B:
-                        thisPairCost += 2 * cPre # no ipi for partitioned (page 227)
+                        thisPairCost += 2 * cPre + ipi # no ipi for partitioned (page 227), edit: level-C ipi can affect level-A,-B
                     else:
                         thisPairCost += 2 * cPre + ipi
 
