@@ -35,7 +35,7 @@ def schedStudySingleScenario(scenario,numCores,corePerComplex):
     endUtil = 2 * numCores
 
     for sysUtil in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
-        # assuming task sets are generated on the fly, otherwise read from csv file by loadSystem if pregenerated
+        # assuming task sets are generated on the fly, otherwise read from csv file by loadSystem if pre-generated
         # assuming a TaskSystem object is returned
         numSamples = 0
 
