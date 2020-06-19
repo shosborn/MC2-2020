@@ -98,19 +98,6 @@ def main():
 
     assumedCache=cacheSizeL3
 
-    '''
-    fileLevelA="levelA-v1.csv"
-    #tasksFromFile=True
-
-    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA)
-    mySystem.levelA.loadSystem(fileLevelA)
-    #mySystem.levelA=CritLevelSystem(Constants.LEVEL_A, fileLevelA, assumedCache)
-    mySystem.levelA.setPairsList()
-    #pairsByCore=mySystem.levelA.assignToClusters(WORST_FIT)
-    mySystem.levelA.assignToCores(Constants.WORST_FIT, mySystem.platform.coreList)
-    #mySystem.printPairsByCore()
-    '''
-
     #where do I add in overheads?
     
     #Test levels A and B

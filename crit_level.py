@@ -13,6 +13,7 @@ from constants import Constants
 from cluster import Cluster
 import math
 from overheads import Overheads
+from numpy import random
 
 
 class CritLevelSystem:
@@ -38,7 +39,61 @@ class CritLevelSystem:
             self.threadedClusters=[]
 
 
+    def createTasks(self, possiblePeriods, targetUtil, taskUtilDis, possibleCacheSensitivity, smtEffectDis, possibleWSS, startingID):
+
+        thisLevelUtil=0
+
+        while thisLevelUtil < targetUtil:
+            # set utilization
+            if taskUtilDis[0]=='U':
+                newUtil=random.uniform(taskUtilDis[1], taskUtilDis[2])
+            if taskUtilDis[0]=='N':
+                newUtil=random.normal(taskUtilDis[1], taskUtilDis[2])
+            if newUtil <= 0 :
+                newUtil = 0.01
+            if newUtil > 1:
+                newUtil = 1
+            
+            # don't exceed the target
+            if thisLevelUtil + newUtil > targetUtil:
+                break
+               
+            # set period and relative deadline
+            period=relDeadline=random.choice(possiblePeriods)
+            # set crit level sensitivity
+            # set WSS and cacheSensitivity
+            wss=random.choice(possibleWSS)
+            cacheSensitivity=random.choice(possibleCacheSensitivity)
+            # create task
+            newTask = Task(taskID, self.level, period, relDeadline)
+            # set solo costs for all crit levels and cache allocations
+            for crit in range(self.level+1, Constants.LEVEL_C + 1):
+                    if crit==level:
+                        fullCacheUtil=newUtil
+                    else:
+                        fullCacheUtil=newUtil/(sensitivity*(crit-self.level))
+                for c in cacheLevels:
+                    # using Josh's formula as of 6/19
+                    # per Josh, formula may need some changes
+                    if c >=wss:
+                        thisUtil=fullCacheUtil
+                    else:
+                        denom=cacheSensitivity*(c+512 * 2**10)
+                        mult=wss/denom
+                        thisUtil=fullCacheUtil * mult
+                newTask.allUtil[(taskID, crit, c)] = thisUtil
+            self.tasksThisLevel.append(newTask)
+            taskID +=1
+        # done creating tasks
+        # set up SMT costs
+        
+            
+            
+
     def loadSystem(self, filename):
+        '''
+        Create a set of tasks for the appropriate level by reading in csv file
+        '''
         header = True
         tasksThisLevel = self.tasksThisLevel
         with open(filename, "r") as f:

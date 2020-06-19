@@ -18,15 +18,48 @@ def generateTaskSystem(utilDist,period,taskUtil,sysUtil):
     cacheSizeL3 = 2
 
     assumedCache = cacheSizeL3
+    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
+    
+    '''
+    To define for each level:
+        tuple possiblePeriods
+            for levels A and B, will choose one value from tuple at random
+            for level C, choose one value from a uniform distribution
+        float targetUtil
+            maximum total utilization of solo util given cacheSizeL3
+        tuple taskUtilDis
+        CacheSensitivity
+            choose one value from tuple at random for each task
+        tuple smtEffectDis
+            gives distribution parameters
+        seed: random seed
+        wss: set of wss values to consider
+
+    '''
+    
+    for thisLevel in mySystem.levels:
+        
+        i=thisLevel.level
+        if i==Constants.LEVEL_A:
+            startingID=1
+        else:
+            startingID=len(mySystem.levels[i-1].tasksThisLevel)+1
+        
+        thisLevel.createTasks(possiblePeriods[i], targetUtil[i], taskUtilDis[i], possibleCacheSensitivity[i], smtEffectDis[i], possibleWSS[i], startingID)
+
+    
+    '''
+    # old version that used pre-defined tasks
     fileLevelA = "levelA-v1.csv"
     fileLevelB = "levelB-v1.csv"
     fileLevelC = "levelC-v1.csv"
-
+    
     mySystem = taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache,
                           fileLevelA, fileLevelB, fileLevelC)
     mySystem.levelA.loadSystem(fileLevelA)
     mySystem.levelB.loadSystem(fileLevelB)
     mySystem.levelC.loadSystem(fileLevelC)
+    '''
 
     return mySystem
 
