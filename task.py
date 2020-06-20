@@ -9,7 +9,7 @@ from constants import Constants
 
 class Task:
     
-    def __init__(self, ID, taskLevel, period, relDeadline,wss=1):
+    def __init__(self, ID, taskLevel, period, relDeadline, wss):
         self.ID=ID
         self.period = period
         self.relDeadline = relDeadline

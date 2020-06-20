@@ -39,9 +39,13 @@ class CritLevelSystem:
             self.threadedClusters=[]
 
 
-    def createTasks(self, possiblePeriods, targetUtil, taskUtilDis, possibleCacheSensitivity, smtEffectDis, possibleWSS, startingID):
+    def createTasks(self, possiblePeriods, targetUtil, taskUtilDis, possibleCacheSensitivity, smtEffectDis, possibleWSS, critSensitivity, startingID):
 
+        # WSS is in bytes
+        # cache allocation possibilities in half-ways from 0-32
         thisLevelUtil=0
+        cacheLevels=Constants.CACHE_LEVELS
+        taskID=startingID
 
         while thisLevelUtil < targetUtil:
             # set utilization
@@ -65,13 +69,13 @@ class CritLevelSystem:
             wss=random.choice(possibleWSS)
             cacheSensitivity=random.choice(possibleCacheSensitivity)
             # create task
-            newTask = Task(taskID, self.level, period, relDeadline)
+            newTask = Task(taskID, self.level, period, relDeadline, wss)
             # set solo costs for all crit levels and cache allocations
             for crit in range(self.level+1, Constants.LEVEL_C + 1):
-                    if crit==level:
-                        fullCacheUtil=newUtil
-                    else:
-                        fullCacheUtil=newUtil/(sensitivity*(crit-self.level))
+                if crit==self.level:
+                    fullCacheUtil=newUtil
+                else:
+                    fullCacheUtil=newUtil/(critSensitivity*(crit-self.level))
                 for c in cacheLevels:
                     # using Josh's formula as of 6/19
                     # per Josh, formula may need some changes
@@ -85,7 +89,62 @@ class CritLevelSystem:
             self.tasksThisLevel.append(newTask)
             taskID +=1
         # done creating tasks
-        # set up SMT costs
+        lastID=taskID-1
+        numTasks=lastID-startingID+1
+        '''
+        if self.level==Constants.LEVEL_A or self.level==Constants.LEVEL_B:
+            for task in self.tasksThisLevel:
+                baseUtil=task.allUtil[(task.ID, Constants.LEVEL_C, cacheLevels[len(cacheLevels)-1])]
+        '''
+        
+        #set up SMT costs
+        if self.level==Constants.LEVEL_C:
+            for task in self.tasksThisLevel:
+                # determine task's effectivenss
+                if smtEffectDis[0]=='U':
+                    smtEffect=newUtil=random.uniform(taskUtilDis[1], taskUtilDis[2])
+                if smtEffectDis[0]=='N':
+                    smtEffect=random.normal(taskUtilDis[1], taskUtilDis[2])
+                # value < 1 don't make sense
+                if smtEffect < 1:
+                    smtEffect=1
+                    
+                # fill in remaining 
+                for c in cacheLevels:
+                    soloUtil=task.allUtil[(task.ID, Constants.LEVEL_C, c)]
+                    for i in range(0, numTasks):
+                        buddyID=self.tasksThisLevel[i].ID
+                        task.allUtil[(buddyID, Constants.LEVEL_C), c] = soloUtil * smtEffect
+                        
+        if self.level==Constants.LEVEL_A or self.level==Constants.LEVEL_A:
+            # determine pair's effectiveness
+            for task1 in self.tasksThisLevel:
+                for task2ID in range(task1.ID+1, lastID+1):
+                    if random() < smtEffectDis[3]:
+                        # don't use SMT
+                        smtEffect=10
+                    elif smtEffectDis[0]=='U':
+                        smtEffect=newUtil=random.uniform(taskUtilDis[1], taskUtilDis[2])
+                    elif smtEffectDis[0]=='N':
+                        smtEffect=random.normal(taskUtilDis[1], taskUtilDis[2])
+                    # negative values don't make sense
+                    if smtEffect < 0:
+                        smtEffect=0
+                        # fill in remaining costs
+                        for c in cacheLevels:
+                            for crit in range(self.level, Constants.LEVEL_C + 1):
+                                soloUtil=soloUtil=task1.allUtil[(task1.ID, crit, c)]
+                                task1.allUtil[(task2ID, crit, c)]=soloUtil * smtEffect
+                                task2=self.tasksThisLevel[task2ID-startingID]
+                                task2.allUtil[(task1.ID, crit, c)]=soloUtil * smtEffect
+                                
+                    
+                        
+                
+                
+                    
+                
+            
         
             
             

@@ -45,7 +45,9 @@ def generateTaskSystem(utilDist,period,taskUtil,sysUtil):
         else:
             startingID=len(mySystem.levels[i-1].tasksThisLevel)+1
         
-        thisLevel.createTasks(possiblePeriods[i], targetUtil[i], taskUtilDis[i], possibleCacheSensitivity[i], smtEffectDis[i], possibleWSS[i], startingID)
+        thisLevel.createTasks(possiblePeriods[i], targetUtil[i], taskUtilDis[i], 
+                              possibleCacheSensitivity[i], smtEffectDis[i], possibleWSS[i], 
+                              critSensitivity, startingID)
 
     
     '''
