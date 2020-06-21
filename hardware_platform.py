@@ -4,9 +4,10 @@ Created on Wed Apr 29 11:56:53 2020
 
 @author: simsh
 """
-
+import math
 import numpy as np
 from core import Core
+from core_complex import CoreComplex
 
 class HardwarePlatform:
     
@@ -15,15 +16,32 @@ class HardwarePlatform:
         self.totalCores=totalCores
         # assumes all clusters are identical
         # should have an error if this isn't an integer
-        self.coresPerComplex=coresPerComplex
-        self.totalComplexes=totalCores/coresPerComplex
+        self.coresPerComplex = coresPerComplex
+        self.totalComplexes = math.ceil(totalCores/coresPerComplex)
+        print(self.totalComplexes)
         # variables describing cache
         #self.cacheSizeL2=cacheSizeL2
         self.perComplexL3=cacheSizeL3
         
         self.complexList=[]
         self.coreList=[]
+
+        for c in range(0,self.totalComplexes):
+            self.complexList.append(CoreComplex(c,cacheSizeL3))
         
         for c in range (0, totalCores):
-            complexID=np.floor(c/self.totalComplexes)
-            self.coreList.append(Core(c, complexID, assumedCache))
+            complexID = math.floor(c/self.totalComplexes)
+            core = Core(c, complexID, assumedCache)
+            self.coreList.append(core)
+            self.complexList[complexID].coreList.append(core)
+
+def main():
+    h = HardwarePlatform(16,4,16,2)
+    for complex in h.complexList:
+        print("complex id: ", complex.complexID)
+        for core in complex.coreList:
+            print(core.coreID, end=" ")
+        print()
+
+if __name__== "__main__":
+     main()

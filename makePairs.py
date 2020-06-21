@@ -26,6 +26,7 @@ class MakePairsILP:
     
     def __init__(self, curSystem):
         self.solver=Model()
+        #self.solver.getEnv().set(GRB_IntParam_OutputFlag, 0)
         self.curSystem=curSystem
         self.startingTaskID=curSystem.tasksThisLevel[0].ID
 

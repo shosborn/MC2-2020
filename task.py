@@ -20,17 +20,20 @@ class Task:
             self.currentThreadedUtil = 0
         self.wss = wss
 
-        def __repr__(self):
-            return "ID: %s"%self.ID
+    def getWss(self):
+        return self.wss / Constants.SIZE_OF_HALF_WAYS
 
-        def __srt__(self):
-            return "ID: %s" % self.ID
+    def __repr__(self):
+        return "ID: %s"%self.ID
 
-        def __eq__(self, other):
-            if isinstance(other, self.__class__):
-                return self.ID == other.ID
-            else:
-                return False
+    def __srt__(self):
+        return "ID: %s" % self.ID
 
-        def __ne__(self, other):
-            return not self.__eq__(other)
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.ID == other.ID
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)

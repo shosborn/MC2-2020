@@ -21,6 +21,13 @@ class Core:
         # second will be for B
         self.pairsOnCore=[[],[]]
         self.assignedCache=assumedCache
+
+        self.cacheAB = [1,1] #L3 cache size (in no of half way) for two threads of this core,
+        # if threads share cache then put half the size in both place
+        #e.g., if both threads share 4 half ways of cache, then use [2,2]: equality constraint in ilp?
+        self.cacheC = 2 #L3 cache size (in no of half way) for level C, same accross all cores
+
+        self.minLevelAPeriod = None
         '''
         self.L2_A
         self.L2_B
@@ -32,4 +39,19 @@ class Core:
 
     def getAssignedCache(self,criticalityLevel):
         #use assignedCache for now
-        return self.assignedCache
+        return self.cacheAB if criticalityLevel <= Constants.LEVEL_B else self.cacheC
+
+    def getMinABCache(self):
+        return min(self.cacheAB)
+
+    def getMAxABCache(self):
+        return max(self.cacheAB)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.coreID == other.coreID
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)

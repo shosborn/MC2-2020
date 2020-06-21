@@ -11,10 +11,17 @@ class Overheads:
     def __init__(self):
         self.overheadData = None
         self.overheadValue = defaultdict()
+
         for key in Constants.OVERHEAD_TYPES:
             self.overheadValue[key] = defaultdict()
             for level in range(Constants.LEVEL_A,Constants.LEVEL_C+1):
                 self.overheadValue[key][level] = defaultdict()
+
+        self.denom = {}
+        self.cPre = {}
+
+        self.cpmd = {}
+        self.cpmdInflationLevelAB = {}
 
     def loadOverheadData(self,dirName):
         '''
@@ -119,8 +126,7 @@ class Overheads:
 
     def getOverheadValue(self,taskCount,costLevel,overhead):
         '''
-        get overhead value. currently for any overhead other than CPMD
-        use list of tasks instead of taskCount (may be needed for CPMD)? otherwise for CPMD getCPMD() method can be called directly.
+        get overhead value by taskcount.
         :param taskCount: number of tasks
         :param costLevel: execution criticality level for overhead data
         :param overhead: overhead type for which value is derived
@@ -131,252 +137,434 @@ class Overheads:
         # for any taskcount > max # of tasks in overhead data, maxmimum observed overhead value is used (maybe data need to be observed)
         return self.montonicInterpolation(taskCount,costLevel,overhead)
 
-    def getCPMD(self,pairs,tasks,taskLevel,costLevel,cacheSize):
+
+    def getCPMDLevelA(self,pairs,tasks,core,cacheSize,scheme):
         '''
-        calculate cache related preemption and migration delay.
-        wss is assumed to be stored in task.py
-        :param pairs: pairs of criticality level-'taskLevel' assigned to a core/ core-complex
-        :param tasks: all tasks at the criticality level-'taskLevel' (pairs criticality level)
-        :param taskLevel: criticality level of pairs (not used)
-        :param costLevel: criticality level of execution
-        :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
-        :return: A pair of (taskpair,cpmdCost)
-        '''
-        #pairWSS = [(pair, pair[0].wss if pair[0]==pair[1] else pair[0].wss+pair[1].wss) for pair in pairs]
-
-        #list of tuples containing pair and maximum wss between the tasks of the pair (max wss size is assumed to determine the delay, with parallel execution of threads)
-        #for solo task pair contains same task in pair[0] and pair[1]
-        startingTaskID = tasks[0].ID
-        pairWSS = [(pair, max(tasks[pair[0]-startingTaskID].wss,tasks[pair[1]-startingTaskID].wss)) for pair in pairs]
-
-        #sore in non-increasing order of wss size
-        pairWSS.sort(key=lambda tuple: tuple[1], reverse=True)
-        '''for pair in pairWSS:
-            print(pair[0][0].ID,pair[0][1].ID,pair[1])
-        '''
-
-        #list of (pair,cpmd_cost), it will contain at most two such tuples (0 if no pair in this core, 1 if 1 pair in this core, 2 otherwise)
-        #1st tuple for the cost of the maximum wss size among the pairs (this will be the overhead for every pair other than the pair having max wss)
-        #2nd tuple for the cost of the 2nd maximum wss size among the pairs (this will be the overhead for the pair having max wss)
-        cpmd = []
-
-        #at least one pair in this core (/cluster: to be modified)
-        if len(pairWSS) > 0:
-            #ignore<if cache size is less than wss, then delay is assumed to be 0, cache may not help
-            #if pairWSS[0][1] > cacheSize:
-            #    cpmd.append((pairWSS[0][0],0))
-            # else:>
-            #a tuple of the pair having max wss and its cpmd cost is appended in cpmd list
-
-            cpmd.append((pairWSS[0][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[0][1]))
-        #more than one pair in this core
-        if len(pairWSS) > 1:
-            #if pairWSS[1][1] > cacheSize:
-            #cpmd.append((pairWSS[1][0],0))
-            # else:
-            # a tuple of the pair having 2nd max wss and its cpmd cost is appended in cpmd list
-            cpmd.append((pairWSS[1][0], Constants.CPMD_PER_UNIT[costLevel] * pairWSS[1][1]))
-        return cpmd
-
-    def getCPMDLevelA(self,pairs,tasks,taskLevel,costLevel,cacheSize):
-        '''
-        task-centric accounting of level-A according to N.Kim et al real-time systems journal paper.
+        calculate cache related preemption delay of level-A tasks of a core
+        task-centric accounting of level-A tasks according to N.Kim et al real-time systems journal paper.
+        Applies for cache related delays caused by preemption of a level-A task by another level-A task
+        (Delay for preemption of a level-B task by a level-A task is accounted by CPMDInflationLevelAB)
         This is used when MC^2 use budgeted implementation for level-A tasks
         If PET for all job-slices of level-A can be predetermined, then 0 CPMD cost for level-A can be used.
         :param pairs: pairs of criticality level-'taskLevel' assigned to a core/ core-complex
-        :param tasks: all tasks at the criticality level-'taskLevel' (pairs criticality level)
-        :param taskLevel: criticality level of pairs (not used)
-        :param costLevel: criticality level of execution
+        :param tasks: all tasks at criticality level-'taskLevel'
+        :param core: considered core
         :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
-        :return: A dictionary of pair->cpmd cost
+        :param scheme: cache allocation scheme
+        :return: A dictionary of (pair, execution level)->cpmd cost
         '''
         cpmd = {}
         if len(pairs) == 0:
             return cpmd
         startingTaskID = tasks[0].ID
-        minPeriod = tasks[pairs[0][0]-startingTaskID].period
+        minPeriod = core.minLevelAPeriod
+
         for pair in pairs:
-            minPeriod = min(minPeriod,tasks[pair[0]-startingTaskID].period)
-        for pair in pairs:
-            s_i = tasks[pair[0]-startingTaskID].period / minPeriod  #n.kim et al journal paper page 27
-            inflation = (s_i - 1) * tasks[pair[0]-startingTaskID].wss * Constants.CPMD_PER_UNIT[costLevel]
-            cpmd[pair] = inflation
+            numSlices = tasks[pair[0]-startingTaskID].period / minPeriod  #n.kim et al journal paper page 27
+
+            if scheme == Constants.THREAD_LEVEL_ISOLATION:
+                # for paired task max cache size among two threads dominates
+                # solo task can use min cache size * 2 (since can see full way)
+                cachePair = max(cacheSize) if pair[0]!=pair[1] else min(cacheSize) * 2
+            else:
+                #core-level isolation, same cachesize to be cosidered for both solo and paired
+                cachePair = cacheSize[0]+cacheSize[1]
+
+            for costLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
+                inflation = (numSlices - 1) * min(tasks[pair[0]-startingTaskID].getWss(),cachePair) * Constants.CPMD_PER_UNIT[costLevel]
+                cpmd[(pair,costLevel)] = inflation
+
         return cpmd
 
-
-    def irqCosts(self,costLevel,dedicatedIRQ,allCriticalityLevels):
+    def getCPMDLevelB(self,pairs,tasks,cacheSize,scheme):
         '''
-        compute values to account irq overheads
+        calculate preemption-centric cache related preemption and migration delay for a core.
+        applies for preemption of level-B tasks by level-B tasks
+        wss is assumed to be stored in task.py
+        :param pairs: pairs of criticality level-'taskLevel' assigned to a core/ core-complex
+        :param tasks: all tasks at level-'taskLevel'
+        :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
+        :param scheme: cache allocation scheme
+        :return: A dictionary of execution level -> cost
+        '''
+
+        if len(pairs) <= 1:
+            #no cpmd in same level if 0 or 1 tasks in core
+            return {Constants.LEVEL_B:0,Constants.LEVEL_C:0}
+
+        startingTaskID = tasks[0].ID
+
+        #maximum wss among the two tasks of a pair dominate, for solo also works pair[0]==pair[1]
+        effectivePairWSS = [max(tasks[pair[0]-startingTaskID].getWss(),tasks[pair[1]-startingTaskID].getWss()) for pair in pairs]
+
+        maxWSS = max(effectivePairWSS)
+
+        if scheme==Constants.THREAD_LEVEL_ISOLATION:
+            #maxmimum among what can be seen by threaded or solo tasks
+            effectiveCacheThread = max(max(cacheSize), min(cacheSize)*2)
+        else:
+            #for core-level, whole cache of this core
+            effectiveCacheThread = cacheSize[0] + cacheSize[1]
+
+        cpmd = {}
+        for costLevel in (Constants.LEVEL_B,Constants.LEVEL_C):
+            inflation = min(maxWSS, effectiveCacheThread) * Constants.CPMD_PER_UNIT[costLevel]
+            cpmd[costLevel] = inflation
+
+        return cpmd
+
+    def getCPMDLevelC(self,clusterTasks,cacheSize):
+        '''
+        calculate preemption-centric cache related preemption and migration delay for a cluster.
+        applies for preemption of level-C tasks by level-C tasks
+        :param clusterTasks: tasks of the cluster for which
         :param costLevel: criticality level of execution
-        :param dedicatedIRQ: whether dedicated irq or not
-        :param allCriticalityLevels: list of all criticality level objects (since all tasks are needed here)
+        :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
+        :return: A pair of (taskpair,cpmdCost)
+        '''
+
+        if len(clusterTasks) <= 1:
+            #no cpmd in same level if 0 or 1 tasks per core/core-complex
+            return {Constants.LEVEL_C:0}
+
+        maxWSS = max(task.getWss() for task in clusterTasks)
+
+        #works for core-level cache isolation too
+        cpmd = {}
+        inflation = min(maxWSS, cacheSize) * Constants.CPMD_PER_UNIT[Constants.LEVEL_C]
+        cpmd[Constants.LEVEL_C] = inflation
+
+        return cpmd
+
+    def CPMDInflationLevelAB(self,pairs,core,allCriticalityLevels,cacheSize,scheme,dedicatedIRQ=False,dedicatedIRQCore=False):
+        '''
+        extra utilization term for a core at level-B,-C analysis due to level-A tasks preempting level-B tasks and affect their cache affinity
+        :param pairs: level-B pairs of a core
+        :param tasks: all tasks at level-B
+        :param costLevel: level of execution to be considered
+        :param core: for which core
+        :param dedicatedIRQ: is dedicated interrupt or not
+        :param dedicatedIRQCore: if dedicated interrupts then the core handling interrupts
+        :return: utilization term need to be added
+        '''
+        #no level-B task in this core
+        if len(pairs) == 0:
+            return {Constants.LEVEL_B:0, Constants.LEVEL_C:0}
+
+        #otherwise
+        tasks = allCriticalityLevels[Constants.LEVEL_B].tasksThisLevel #level-B tasks
+        startingTaskID = tasks[0].ID #level-B tasks starting ID
+        minPeriod = core.minLevelAPeriod
+
+        effectivePairWSS = [max(tasks[pair[0] - startingTaskID].getWss(), tasks[pair[1] - startingTaskID].getWss()) for pair in
+                            pairs]
+        maxWSS = max(effectivePairWSS)
+
+        if scheme == Constants.THREAD_LEVEL_ISOLATION:
+            # maxmimum among what can be seen by threaded or solo tasks
+            effectiveCacheThread = max(max(cacheSize), min(cacheSize) * 2)
+        else:
+            # for core-level, whole cache of this core
+            effectiveCacheThread = cacheSize[0] + cacheSize[1]
+
+        cpmdUtil = {}
+        for costLevel in (Constants.LEVEL_B,Constants.LEVEL_C):
+            cpmd = min(maxWSS,effectiveCacheThread) * Constants.CPMD_PER_UNIT[costLevel]
+
+            #for this extra term account for tick and release (need this? miccaiah's paper doesn't explicitely says)
+            if dedicatedIRQ and core != dedicatedIRQCore:
+                #if dedicated interrupt but this core is not handling, then use don't need irq
+                denom, cpre = self.denom[False][costLevel], self.cPre[False][costLevel]
+            else:
+                denom, cpre = self.denom[False][costLevel], self.cPre[False][costLevel]
+
+            cpmdUtil[costLevel] = (cpmd / denom + 2 * cpre)/minPeriod #the term I^B_{A,p} of rts journal 15 paper, page 28
+
+        return cpmdUtil
+
+    def irqCosts(self, allCritLevels, considerIRQ=False):
+        '''
+        compute values to account irq overheads accross 3 levels of execution
+        :param allCritLevels: list of all criticality level objects (since all tasks are needed here)
+        :param considerIRQ: whether release interrupts to consider or not
         :return:
         '''
-        tick = self.overheadValue['tick'][costLevel] #Delta_tck
-        releaseLatency = self.overheadValue['releaseLatency'][costLevel] #Delta_ev
-        release = self.overheadValue['release'][costLevel] #Delta_rel
+        denomAll , cPreAll = {}, {}
+        for costLevel in range(Constants.LEVEL_A,Constants.LEVEL_C+1):
+            tick = self.overheadValue['tick'][costLevel] #Delta_tck
+            releaseLatency = self.overheadValue['releaseLatency'][costLevel] #Delta_ev
+            release = self.overheadValue['release'][costLevel] #Delta_rel
 
-        eTick = (tick + Constants.CPI_PER_UNIT[costLevel]) #page 251
-        eIrq = (release + Constants.CPI_PER_UNIT[costLevel]) #page 251
-        uTick = eTick / Constants.QUANTUM_LENGTH #page 251
+            eTick = (tick + Constants.CPI_PER_UNIT[costLevel]) #page 251
+            eIrq = (release + Constants.CPI_PER_UNIT[costLevel]) #page 251
+            uTick = eTick / Constants.QUANTUM_LENGTH #page 251
 
-        uRelease = 0 #third term of denominator of Expression 3.17
-        cPre = eTick + releaseLatency * uTick  # first two terms of numerator of 3.18
+            uRelease = 0 #third term of denominator of Expression 3.17
+            cPre = eTick + releaseLatency * uTick  # first two terms of numerator of 3.18
 
-        if dedicatedIRQ == False:
-            for critLevel in allCriticalityLevels:
-                for task in critLevel.tasksThisLevel:
-                    uIrq = (eIrq / task.period)
-                    uRelease += uIrq # u^irq = (eIrq /task.period), page 251 (there may be a typo in page 251 about this eqn)
-                    cPre += releaseLatency * uIrq + eIrq  # third term of numerator of 3.18
+            if considerIRQ:
+                for critLevel in allCritLevels:
+                    for task in critLevel.tasksThisLevel:
+                        uIrq = (eIrq / task.period)
+                        uRelease += uIrq # u^irq = (eIrq /task.period), page 251 (there may be a typo in page 251 about this eqn)
+                        cPre += releaseLatency * uIrq + eIrq  # third term of numerator of 3.18
 
-        denominator = (1- uTick - uRelease) #denominator of 3.17
-        cPre /= denominator #3.18 complete
-        return denominator,cPre
+            denominator = (1- uTick - uRelease) #denominator of 3.17
+            cPre /= denominator #3.18 complete
 
-    def accountForOverhead(self, costLevel, taskCount, coreList, clusterList, allCriticalityLevels, dedicatedIRQ=False):
+            denomAll[costLevel] = denominator
+            cPreAll[costLevel] = cPre
+
+        #self.denom = denomAll
+        #self.cPre = cPreAll
+        return denomAll, cPreAll
+
+
+    def populateIRQCosts(self,allCriticalityLevels):
         '''
-        Account for overhead
-        :param costLevel: execution criticality level
-        :param taskCount: Number of tasks
-        :param coreList: list of cores
-        :param allCriticalityLevels: list of all criticality levels
-        :return: A dictionary of pair -> (period, relDeadline, cost) after accounting overheads
+        populate demon and cpre values for accounting interrupts (both considering release interrupts and not)
+        :param allCriticalityLevels: all criticality levels
+        :return:
+        '''
+        # considering release interrupt cost (usage: if not dedicated interrupt or for the core handling interrupt if dedicated interrupt used)
+        self.denom[True], self.cPre[True] = self.irqCosts(allCriticalityLevels, True)
+        # not considering release interrupt (usage: for cores not handling interrupts in dedicated interrupt handling)
+        self.denom[False], self.cPre[False] = self.irqCosts(allCriticalityLevels, False)
+
+    def populateOverheadValue(self,taskCount,allCriticalityLevels):
+        '''
+        populate all overhead values for no of tasks=taskcount
+        :param taskCount: no of tasks
+        :param allCriticalityLevels: all criticality levels
+        :return:
+        '''
+        for oheadName in Constants.OVERHEAD_TYPES:
+            oHeadCode = Constants.OVERHEAD_TYPES[oheadName]
+            for costLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
+                self.overheadValue[oheadName][costLevel] = self.getOverheadValue(taskCount,costLevel,oHeadCode)
+        self.populateIRQCosts(allCriticalityLevels)
+
+    def accountOverheadCore(self, taskLevel, allCritLevels, core, cacheSize, scheme, dedicatedIRQ=False, dedicatedIRQCore=None):
+        '''
+        Account for overhead of level-A or -B tasks of a core
+        :param taskLevel: taskss' criticality level
+        :param allCritLevels: list of all criticality levels
+        :param core: core for which overhead is accounted
+        :param cacheSize size of allocated cache
+        :param scheme scheme of level-A,-B cache allocation
+        :param dedicatedIRQ whether dedicated interrupt handling or not
+        :param dedicatedIRQCore which core is handling interrupt in case of dedicated interrupt handling
+        :return: A dictionary of pair -> util after accounting overheads
         '''
         #store inflated pairs. Not altering original tasks parameters. They may be needed to compare with other schedulers.
         inflatedUtils = defaultdict()
 
-        # get approximation of overhead values from csv file for this level
-        for oheadName in Constants.OVERHEAD_TYPES:
-            oHeadCode = Constants.OVERHEAD_TYPES[oheadName]
-            self.overheadValue[oheadName][costLevel] = self.getOverheadValue(taskCount,costLevel,oHeadCode)
-        # determine relevant parameters for irq
-        denominator,cPre = self.irqCosts(costLevel,dedicatedIRQ,allCriticalityLevels)
-        # ipi overhead value at this level
-        ipi = self.overheadValue['ipiLatency'][costLevel]
+        tasksCritLevel = allCritLevels[taskLevel].tasksThisLevel
+        startingTaskID = tasksCritLevel[0].ID
 
-        # get scheduling and context switch overhead assuming execution at criticality level 'level'
-        schedOverhead = self.overheadValue['scheduling'][costLevel]
-        contextSwitch = self.overheadValue['contextSwitch'][costLevel]
+        #cache delay for all pairs at this level of this core
+        if taskLevel == Constants.LEVEL_A:
+            # for budgeted implementation of cyclic executing. ref. n.kim journal paper 2017
+            cpmd = self.getCPMDLevelA(pairs=core.pairsOnCore[taskLevel], tasks=tasksCritLevel,scheme=scheme,
+                                       cacheSize=cacheSize, core=core)  # dictionary of (pair,costLevel)->cost
+        else:
+            cpmd = self.getCPMDLevelB(pairs=core.pairsOnCore[taskLevel], tasks=tasksCritLevel,
+                                        scheme=scheme,cacheSize=cacheSize)
 
-        releaseLatency = self.overheadValue['releaseLatency'][costLevel]  # Delta_ev
+        #consider all criticality levels at or below for the tasks at critLevel
+        for costLevel in range(taskLevel, Constants.LEVEL_C+1):
+            # ipi overhead value at execution of costLevel
+            ipi = self.overheadValue['ipiLatency'][costLevel]
 
-        smtOverhead = Constants.SMT_OVERHEAD
-        print("cost level: ",costLevel)
-        print("ipi: ",ipi, " sched: ", schedOverhead, " ctx: ",contextSwitch, " relLatency: ", releaseLatency, " smt: ", smtOverhead, " denom: ", denominator, " cPre: ", cPre)
+            # get scheduling and context switch overhead assuming execution at criticality level 'costLevel'
+            schedOverhead = self.overheadValue['scheduling'][costLevel]
+            contextSwitch = self.overheadValue['contextSwitch'][costLevel]
 
-        #consider all tasks at or before this level
-        for critLevel in range(Constants.LEVEL_A,costLevel+1):
-            inflatedUtils[critLevel] = defaultdict()
-            tasksCritLevel = allCriticalityLevels[critLevel].tasksThisLevel
-            startingTaskID = tasksCritLevel[0].ID
-            coreOrClusterList = None
-            if critLevel == Constants.LEVEL_C:
-                coreOrClusterList = clusterList
-            else:
-                coreOrClusterList = coreList
-            # iterate core for level-A,-B, cluster for level-C
-            for cluster in coreOrClusterList:
-                #cache allocated to this core for the tasks at critLevel (for level-C, easy way to adapt is to pass list of core complex
-                # instead of list of cores and having similar approach to have cache size and tasks assigned at each core complex
-                if critLevel <= Constants.LEVEL_B:
-                    cacheSize = cluster.getAssignedCache(critLevel)
+            releaseLatency = self.overheadValue['releaseLatency'][costLevel]  # Delta_ev
+
+            smtOverhead = Constants.SMT_OVERHEAD[costLevel]
+
+            #if Constants.DEBUG:
+            #    print("cost level: ",costLevel)
+            #    print("ipi: ",ipi, " sched: ", schedOverhead, " ctx: ",contextSwitch, " relLatency: ", releaseLatency, " smt: ", smtOverhead)
+
+            #identify if this core is the dedicate interrupt core or this cluster contains that core
+            isDedicatedInterruptCore = False
+            if dedicatedIRQ:
+                isDedicatedInterruptCore = (core == dedicatedIRQCore)
+
+            for pair in core.pairsOnCore[taskLevel]:
+                #cost of this task/pair assuming execution at critcality level-'level'
+                thisPairPeriod = tasksCritLevel[pair[0] - startingTaskID].period
+                #paired task
+                if pair[0] != pair[1]:
+                    #cost is currently modeled based on total cache for the pair, not how they are divided
+                    #this is ok for core-level-isolation, but what about thread-level-isolation? 2+2 vs 3+1?
+                    thisPairUtil = tasksCritLevel[pair[0]-startingTaskID].allUtil[(pair[1], costLevel,  cacheSize[0]+cacheSize[1])]
+                #solo task
                 else:
-                    #assuming level-C cache of a cluster is saved in all cores; i.e., same value stored in all core
-                    cacheSize = cluster.coresThisCluster[0].getAssignedCache(critLevel)
+                    thisPairUtil = tasksCritLevel[pair[0] - startingTaskID].allUtil[(pair[1], costLevel,
+                                         cacheSize[0] + cacheSize[1])] if scheme==Constants.CORE_LEVEL_ISOLATION else tasksCritLevel[
+                                                    pair[0] - startingTaskID].allUtil[(pair[1], costLevel, min(cacheSize)*2)]
 
-                pairs = []
-                # for level-C construct pseudo-pairs for adapting level-A,-B cpmd cost code
-                if critLevel == Constants.LEVEL_C:
-                    for task in cluster.taskList:
-                        pairs.append((task.ID,task.ID))
+                thisPairCost = thisPairUtil * thisPairPeriod
+                origCost = thisPairCost
+
+                if taskLevel == Constants.LEVEL_A:
+                    # add cpmd overhead
+                    thisPairCost += cpmd[(pair,costLevel)]
+                    # ctx switch overhead for each slice and single sched overhead, num_slices * ctx + sched
+                    thisPairCost += (thisPairPeriod / core.minLevelAPeriod) * contextSwitch + schedOverhead
+                    #smt overhead similar to ctx overhead
+                    thisPairCost += (thisPairPeriod / core.minLevelAPeriod) * smtOverhead
                 else:
-                    pairs = cluster.pairsOnCore[critLevel]
-
-                #get cpmd cost assuming execution at criticality level 'level' for tasks at 'critLevel' assigned to this 'core'
-                #level-A tasks have 0 CPMD due to being cyclic executing, assuming no overlapping cache like miccaiah et al. rtss'15
-                if critLevel == Constants.LEVEL_A:
-                    # decide which of the below to use
-                    # for budgeted implementation of cyclic executing. ref. n.kim journal paper 2017
-                    cpmd = self.getCPMDLevelA(pairs, tasksCritLevel, critLevel, costLevel, cacheSize)
-                    # no cpmd, cost will be 0 as len(cpmd) <= 1. ref. micaiah rtss paper 2015
-                    #cpmd = []
-                else:
-                    cpmd = self.getCPMD(pairs,tasksCritLevel,critLevel,costLevel,cacheSize)
-
-                    #costs of cpmd for the two pairs in the core having largest cpmd cost
-                    #cost1 is used for any pair other than pair1
-                    #cost2 is used for pair1
-                    if len(cpmd) <= 1:
-                        pair1, cost1 = None, 0 #only one task, no cpmd
-                        #print("cpmd: ",0)
-                    else:
-                        pair1, cost1 = cpmd[0][0], cpmd[0][1]
-                        #print("cpmd: ", cpmd[0][1])
-                        pair2, cost2 = cpmd[1][0], cpmd[1][1]
-                        #print("cpmd: ", cpmd[1][1])
-
-
-                for pair in pairs:
-                    #cost of this task/pair assuming execution at critcality level-'level'
-                    if critLevel <= Constants.LEVEL_B:
-                        thisPairCost = tasksCritLevel[pair[0]-startingTaskID].allUtil[(pair[1], costLevel, cacheSize)] *\
-                                       tasksCritLevel[pair[0]-startingTaskID].period
-                    elif cluster.threaded:
-                        thisPairCost = tasksCritLevel[pair[0]-startingTaskID].currentThreadedUtil * \
-                                       tasksCritLevel[pair[0]-startingTaskID].period
-                    else:
-                        thisPairCost = tasksCritLevel[pair[0] - startingTaskID].currentSoloUtil * \
-                                       tasksCritLevel[pair[0] - startingTaskID].period
-
-                    #add cpmd overhead
-                    if critLevel == Constants.LEVEL_A:
-                        #if budgeted implementation n.kim journal 2017
-                        thisPairCost += cpmd[pair]
-                        #if job slicing point known micaiah rtss 2015
-                        #thisPairCost += 0
-                    else:
-                        if len(cpmd) <= 1:
-                            thisPairCost += cost1 #cost1 will be 0
-                        elif pair[0] == pair1[0]:
-                            thisPairCost += cost2
-                        else:
-                            thisPairCost += cost1
-
-                    #add for sched and ctx overhead
+                    thisPairCost += cpmd[costLevel]
                     thisPairCost += 2 * (schedOverhead + contextSwitch)
+                    thisPairCost += 2 * smtOverhead
 
-                    # add for smt overhead
-                    # smt overhead is considered similar as sched overhead
-                    # smt overhead only for level-A,-B tasks. for level-C tasks clusters are either threaded or non-threaded
-                    # so preemption due to level-C tasks do not need any smt turning off or on
-                    if critLevel <= Constants.LEVEL_B:
-                        thisPairCost += smtOverhead
+                #inflate for isr
+                if dedicatedIRQ and not isDedicatedInterruptCore:
+                    thisPairCost /= self.denom[False][costLevel]
+                    thisPairCost += 2 * self.cPre[False][costLevel] + ipi
 
-                    #inflate for isr
-                    thisPairCost /= denominator
+                    # update cost acc. to page 263
+                    release = self.overheadValue['release'][costLevel]
+                    thisPairCost += release
+                else:
+                    thisPairCost /= self.denom[True][costLevel]
+                    thisPairCost += 2 * self.cPre[True][costLevel] + ipi
 
-                    if critLevel <= Constants.LEVEL_B:
-                        thisPairCost += 2 * cPre + ipi # no ipi for partitioned (page 227), edit: level-C ipi can affect level-A,-B
-                    else:
-                        thisPairCost += 2 * cPre + ipi
+                    # update period by (3.3) page 262
+                    thisPairPeriod -= releaseLatency
 
-                    thisPairPeriod = tasksCritLevel[pair[0]-startingTaskID].period
-                    thisRelDeadline = tasksCritLevel[pair[0]-startingTaskID].relDeadline
-
-                    if dedicatedIRQ == False:
-                        # update cost acc. to page 263
-                        release = self.overheadValue['release'][costLevel]
-                        thisPairCost += release
-
-                        # update period and deadline by (3.3) (3.4) page 262
-                        thisPairPeriod -= releaseLatency
-                        thisRelDeadline -= releaseLatency
-
-
-                    #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
-                    inflatedUtils[critLevel][pair] = thisPairCost/thisPairPeriod
+                #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
+                inflatedUtils[(pair,costLevel)] = thisPairCost/thisPairPeriod
+                if Constants.DEBUG:
+                    print("pair: ",pair, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
+
+    def accountOverheadCluster(self, taskLevel, allCritLevels, cluster, cacheSize, additionalCluster=None, dedicatedIRQ=False, dedicatedIRQCore=None):
+        '''
+        Account for overhead for level-C tasks of a cluster
+        :param taskLevel: tasks' level (level-C)
+        :param allCritLevels: list of all criticality levels
+        :param cluster: cluster for which overhead is accounted
+        :param cacheSize: size of allocated cache
+        :param additionalCluster for a single core complex, there can be two clusters (one solo, one threaded). need the additionalCluster for level-C cache delay measuring
+        :param dedicatedIRQ whether dedicated interrupt handling or not
+        :param dedicatedIRQCore which core is handling interrupt in case of dedicated interrupt handling
+        :return: A dictionary of (taskID,execLevel) -> util after accounting overheads
+        '''
+        #store inflated pairs. Not altering original tasks parameters. They may be needed to compare with other schedulers.
+        inflatedUtils = defaultdict()
+
+        tasksCritLevel = allCritLevels[taskLevel].tasksThisLevel
+        startingTaskID = tasksCritLevel[0].ID
+
+        if additionalCluster:
+            tasks = []
+            tasks.extend(cluster.taskList)
+            tasks.extend(additionalCluster.taskList)
+            cpmd = self.getCPMDLevelC(clusterTasks=tasks,
+                                      cacheSize=cacheSize)
+        else:
+            cpmd = self.getCPMDLevelC(clusterTasks=cluster.taskList,
+                                cacheSize=cacheSize)
+
+        #consider all criticality levels at or below for the tasks at critLevel
+        for costLevel in range(taskLevel, Constants.LEVEL_C+1):
+            # ipi overhead value at execution of costLevel
+            ipi = self.overheadValue['ipiLatency'][costLevel]
+
+            # get scheduling and context switch overhead assuming execution at criticality level 'costLevel'
+            schedOverhead = self.overheadValue['scheduling'][costLevel]
+            contextSwitch = self.overheadValue['contextSwitch'][costLevel]
+
+            releaseLatency = self.overheadValue['releaseLatency'][costLevel]  # Delta_ev
+
+            #identify if this core is the dedicate interrupt core or this cluster contains that core
+            isDedicatedInterruptCore = False
+            if dedicatedIRQ:
+                for core in cluster.coresThisCluster:
+                    isDedicatedInterruptCore = (core == dedicatedIRQCore)
+                    if isDedicatedInterruptCore:
+                        break
+
+            for task in cluster.taskList:
+                #cost of this task/pair assuming execution at critcality level-'level'
+                thisPairPeriod = task.period
+
+                if cluster.threaded:
+                    thisPairUtil = 0
+                    for otherTask in cluster.taskList:
+                        if task != otherTask:
+                            thisPairUtil = max(thisPairUtil, task.allUtil[(otherTask.ID,Constants.LEVEL_C,cacheSize)])
+                    thisPairCost = thisPairUtil * thisPairPeriod
+                else:
+                    thisPairCost = task.allUtil[(task.ID,Constants.LEVEL_C,cacheSize)] * thisPairPeriod
+                origCost = thisPairCost
+
+                thisPairCost += cpmd[costLevel]
+                thisPairCost += 2 * (schedOverhead + contextSwitch)
+
+                # no smt overhead accounted for level-C tasks
+                # preemptions due to level-C tasks do not need any smt turning off or on
+                # since a level-C task can only preempt another level-C tasks
+                # and all level-C tasks of a cluster is either solo or threaded
+
+                #inflate for isr
+                if dedicatedIRQ and not isDedicatedInterruptCore:
+                    thisPairCost /= self.denom[False][costLevel]
+                    thisPairCost += 2 * self.cPre[False][costLevel] + ipi
+
+                    # update cost acc. to page 263
+                    release = self.overheadValue['release'][costLevel]
+                    thisPairCost += release
+                else:
+                    thisPairCost /= self.denom[True][costLevel]
+                    thisPairCost += 2 * self.cPre[True][costLevel] + ipi
+
+                    # update period by (3.3) page 262
+                    thisPairPeriod -= releaseLatency
+
+                #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
+                inflatedUtils[(task.ID,costLevel)] = thisPairCost/thisPairPeriod
+                if Constants.DEBUG:
+                    print("task: ",task.ID, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
+        return inflatedUtils
+
+
+    def accountForOverhead(self, taskLevel, allCritLevels, coreList, clusterList, scheme, dedicatedIRQ=False, dedicatedIRQCore=None):
+        '''
+        Account for overhead, for whole task system. (will not use)
+        :param costLevel: execution criticality level
+        :param taskCount: Number of tasks
+        :param coreList: list of cores
+        :param allCriticalityLevels: list of all criticality levels
+        :return: A dictionary of pair -> util after accounting overheads
+        '''
+        #store inflated pairs. Not altering original tasks parameters. They may be needed to compare with other schedulers.
+        inflatedUtils = defaultdict()
+
+        tasksCritLevel = allCritLevels[taskLevel].tasksThisLevel
+        startingTaskID = tasksCritLevel[0].ID
+
+        if taskLevel <= Constants.LEVEL_B:
+            for core in coreList:
+                inflatedUtilsCore = self.accountOverheadCore(taskLevel=taskLevel, allCritLevels=allCritLevels, core=core,
+                                         cacheSize=core.getAssignedCache(taskLevel), scheme=scheme,
+                                         dedicatedIRQ=dedicatedIRQ, dedicatedIRQCore=dedicatedIRQCore)
+                inflatedUtils.update(inflatedUtilsCore)
+        else:
+            for cluster in clusterList:
+                inflatedUtilsCore = self.accountOverheadCluster(taskLevel = taskLevel, allCritLevels=allCritLevels,
+                                                             cluster = cluster,
+                                                             cacheSize = cluster.coresThisCluster[0].getAssignedCache(taskLevel),
+                                                             dedicatedIRQ = dedicatedIRQ,
+                                                             dedicatedIRQCore = dedicatedIRQCore)
+                inflatedUtils.update(inflatedUtilsCore)
+        return inflatedUtils
+
 
 def main():
     overHeads = Overheads()

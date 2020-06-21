@@ -5,12 +5,13 @@ Created on Wed Apr 29 11:53:32 2020
 @author: simsh
 """
 
-import Core
+from core import Core
 
 class CoreComplex:
     
-    def __init__(self):
-        self.clusterID=clusterID
-        self.coreList=coreList
-        self.L3_C=L3_C
+    def __init__(self, complexID,CacheSizeL3):
+        self.complexID = complexID
+        self.coreList = []
+        self.cacheSize=CacheSizeL3
+        self.clusterList = [] #one complex can host two cluster: one solo and one threaded (this can happen for at most one complex)
         

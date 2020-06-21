@@ -22,6 +22,11 @@ class Constants:
     '''
     MAX_THREADED_UTIL = .7
 
+    #related to cache allocation
+
+    CORE_LEVEL_ISOLATION = 0 #two threads of a core share cache for level-A,-B tasks, option 2 from joshua
+    THREAD_LEVEL_ISOLATION = 1 #two threads of a core gets isolated cache allocation for level-A,-B tasks, option 4 from joshua
+
     #related to overheads
     #column header from overhead data file
     '''
@@ -53,13 +58,15 @@ class Constants:
 
     QUANTUM_LENGTH = 1000
 
+    SIZE_OF_HALF_WAYS = 0.5 #1 half way = 0.5 MB
+
     CPMD_PER_UNIT = [0, 10, 8] #constant b^l from miccaiah et al RTSS'15, 0 for level-A (no CPMD for cyclic executive)
 
     CPI_PER_UNIT = [0, 0, 0]#assumed to be small
 
-    SMT_OVERHEAD = 1 #assuming SMT overhead as constant, need to determine whether it depends on number of tasks
+    SMT_OVERHEAD = [3,2,1] #assuming SMT overhead as constant, need to determine whether it depends on number of tasks
 
-    IS_DEDICATED_IRQ = False
+    IS_DEDICATED_IRQ = True
 
     OVERHEAD_ACCOUNT = True
 
@@ -68,6 +75,8 @@ class Constants:
     CORES_PER_COMPLEX = 4
     NUM_CORES = 16
     UTIL_STEP_SIZE = 0.2
+
+    MAX_HALF_WAYS = 16
 
     MAX_SAMPLES = 2 #set at 2 for intial testing
 
@@ -96,4 +105,6 @@ class Constants:
         'Moderate': [(0.02, 0.1), (0.05, 0.2), (0.1, 0.4)],
         'Heavy':    [(0.1, 0.2), (0.2, 0.4), (0.4, 0.6)]
     }
+
+    DEBUG = True
 
