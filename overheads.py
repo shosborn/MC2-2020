@@ -278,7 +278,7 @@ class Overheads:
             else:
                 denom, cpre = self.denom[False][costLevel], self.cPre[False][costLevel]
 
-            cpmdUtil[costLevel] = (cpmd / denom + 2 * cpre)/minPeriod #the term I^B_{A,p} of rts journal 15 paper, page 28
+            cpmdUtil[costLevel] = (cpmd / denom)/minPeriod #the term I^B_{A,p} of rts journal 15 paper, page 28
 
         return cpmdUtil
 
