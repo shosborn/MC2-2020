@@ -14,6 +14,8 @@ class Constants:
 
     ASSUMED_MAX_CAPACITY = 1
 
+    THREAD_PER_CORE = 2
+
     # maximum threaded util
     '''
     observation: making this 1 makes systems less schedulable,
@@ -106,5 +108,5 @@ class Constants:
         'Heavy':    [(0.1, 0.2), (0.2, 0.4), (0.4, 0.6)]
     }
 
-    DEBUG = True
+    DEBUG = False
 

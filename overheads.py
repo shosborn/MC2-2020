@@ -219,7 +219,7 @@ class Overheads:
         applies for preemption of level-C tasks by level-C tasks
         :param clusterTasks: tasks of the cluster for which
         :param costLevel: criticality level of execution
-        :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
+        :param cacheSize: cachesize allocated (in half ways)
         :return: A pair of (taskpair,cpmdCost)
         '''
 

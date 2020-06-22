@@ -12,13 +12,14 @@ from task import Task
 from constants import Constants
 from cluster import Cluster
 import math
+import random
 from overheads import Overheads
 
 
 class CritLevelSystem:
 
 
-    def __init__(self, level, assumedCache, upperCritLevels = None):
+    def __init__(self, level, assumedCache):
         self.level = level
         #self.firstInSystem = numHigherCritTasks + 1
 
@@ -71,7 +72,7 @@ class CritLevelSystem:
                     #print("taskID=", taskID)
                     period = relDeadline = int(arr[1])
                     newTask = Task(taskID, self.level, period, relDeadline)
-                    newTask = Task(taskID, self.level, period*100, relDeadline*100) # to test
+                    newTask = Task(taskID, self.level, period*1000, relDeadline*1000) # to test
                     for column in range(2, len(arr)):
                         # add util to newTask.allUtil with the appropriate key
                         keyList = headerArr[column].split("-")
@@ -89,6 +90,18 @@ class CritLevelSystem:
                         newTask.allUtil[(sibling, critLevelInt, cacheList)] = thisUtil
                         newTask.allUtil[(sibling, critLevelInt, cacheList)] = thisUtil*0.5 #to test
                     tasksThisLevel.append(newTask)
+
+        startingCacheSize = 3
+        endingCacheSize = Constants.MAX_HALF_WAYS
+        #some random data for higher cache sizes
+        for task in tasksThisLevel:
+            factor = random.uniform(0.1,0.5)
+            factor /= 100
+            for otherTask in tasksThisLevel:
+                for cacheSize in range(startingCacheSize,endingCacheSize+1):
+                    for level in range(self.level,Constants.LEVEL_C+1):
+                        task.allUtil[(otherTask.ID,level,cacheSize)] = \
+                            task.allUtil[(otherTask.ID,level,cacheSize-1)] * math.exp(-cacheSize*factor)
 
     #applies to crit levels A and B
     def setPairsList(self):
