@@ -9,7 +9,7 @@ from constants import Constants
 
 class Task:
     
-    def __init__(self, ID, taskLevel, period, relDeadline,wss=1):
+    def __init__(self, ID, taskLevel, period, relDeadline, wss):
         self.ID=ID
         self.period = period
         self.relDeadline = relDeadline
@@ -18,6 +18,9 @@ class Task:
             self.currentSoloUtil=0
             self.currentThreadedCost = 0
             self.currentThreadedUtil = 0
+        # wss is in MB
+        # 2020 platform has ways of 1MB each
+        # half-ways of 512 KB each.
         self.wss = wss
 
     def getWss(self):

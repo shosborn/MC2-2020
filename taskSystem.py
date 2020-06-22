@@ -15,7 +15,7 @@ from schedTest import *
 
 class taskSystem:
     
-    def __init__(self, totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA, fileLevelB, fileLevelC):
+    def __init__(self, totalCores, coresPerComplex, cacheSizeL3, assumedCache):
 
         self.platform=HardwarePlatform(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
         self.levelA=CritLevelSystem(Constants.LEVEL_A, assumedCache)
@@ -100,18 +100,6 @@ def main():
 
     assumedCache=cacheSizeL3
 
-    '''
-    fileLevelA="levelA-v1.csv"
-    #tasksFromFile=True
-
-    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA)
-    mySystem.levelA.loadSystem(fileLevelA)
-    #mySystem.levelA=CritLevelSystem(Constants.LEVEL_A, fileLevelA, assumedCache)
-    mySystem.levelA.setPairsList()
-    #pairsByCore=mySystem.levelA.assignToClusters(WORST_FIT)
-    mySystem.levelA.assignToCores(Constants.WORST_FIT, mySystem.platform.coreList)
-    #mySystem.printPairsByCore()
-    '''
     
     #Test levels A and B
     fileLevelA="levelA-v1.csv"

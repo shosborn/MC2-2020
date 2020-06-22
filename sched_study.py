@@ -1,37 +1,76 @@
 from constants import Constants
 from taskSystem import taskSystem
 import numpy as np
+from numpy import random
 import itertools
 import argparse
 
 def generateScenario():
-    paramList = {'utilDist':Constants.CRITICALITY_UTIL_DIST.keys(), 'period':Constants.PERIOD_DIST.keys(), 'taskUtil':Constants.TASK_UTIL.keys()}
+    #goal: return a scenario corresponding to every possible combination
+
+    paramList = {'critUtilDist':Constants.CRITICALITY_UTIL_DIST.keys(), 
+                 'periodDist':Constants.PERIOD_DIST.keys(), 
+                 'taskUtilDist':Constants.TASK_UTIL.keys(),
+                 'possCacheSensitivity':Constants.CACHE_SENSITIVITY.keys(),
+                 'wssDist':Constants.WSS_DIST.keys(),
+                 'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys()
+                 }
+
+    
     keys = paramList.keys()
+    
     vals = paramList.values()
     for instance in itertools.product(*vals):
         yield dict(zip(keys, instance))
 
-def generateTaskSystem(utilDist,period,taskUtil,sysUtil):
+
+def generateTaskSystem(scenario, sysUtil):
     # for now loading task system from sample file
     totalCores = Constants.NUM_CORES
     coresPerComplex = Constants.CORES_PER_COMPLEX
     cacheSizeL3 = 2
 
     assumedCache = cacheSizeL3
-    fileLevelA = "levelA-v1.csv"
-    fileLevelB = "levelB-v1.csv"
-    fileLevelC = "levelC-v1.csv"
+    mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
 
-    mySystem = taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache,
-                          fileLevelA, fileLevelB, fileLevelC)
-    mySystem.levelA.loadSystem(fileLevelA)
-    mySystem.levelB.loadSystem(fileLevelB)
-    mySystem.levelC.loadSystem(fileLevelC)
+    
+    # generate tasks for all levels
+    cTargetUtilByLevel=[]
+    for thisLevel in mySystem.levels:
+        i=thisLevel.level
+        if i==Constants.LEVEL_A:
+            startingID=1
+        else:
+            startingID=len(mySystem.levels[i-1].tasksThisLevel)+1
+        
+        if i == Constants.LEVEL_A or i == Constants.LEVEL_B:
+            lb=Constants.CRITICALITY_UTIL_DIST[scenario['critUtilDist']][i][0]
+            ub=Constants.CRITICALITY_UTIL_DIST[scenario['critUtilDist']][i][1]
+            # multiply random value by (difference between level and C + 1) to get target util
+            cTargetUtil=random.uniform(lb, ub) * sysUtil
+            cTargetUtilByLevel.append(cTargetUtil)
+            targetUtil=cTargetUtil / (Constants.CRIT_SENSITIVITY * (Constants.LEVEL_C - i + 1))
+            
+        else:
+            # targetUtil for level C; however much of sysUtil is leftover
+            targetUtil = sysUtil - sum(cTargetUtilByLevel)
+        
+        thisLevel.createTasks(
+                Constants.PERIOD_DIST[scenario['periodDist']][i],
+                targetUtil,
+                Constants.TASK_UTIL[scenario['taskUtilDist']][i],
+                Constants.CACHE_SENSITIVITY[scenario['possCacheSensitivity']],
+                Constants.SMT_EFFECTIVENESS_DIST[scenario['smtEffectDist']][i],
+                Constants.WSS_DIST[scenario['wssDist']],
+                Constants.CRIT_SENSITIVITY,
+                startingID
+                )
 
     return mySystem
 
 def schedStudySingleScenario(scenario,numCores,corePerComplex):
-    startUtil = 0
+    # if running this takes too long, set startUtil to numCores/2
+    startUtil = numCores / 2
     endUtil = 2 * numCores
 
     for sysUtil in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
@@ -41,7 +80,8 @@ def schedStudySingleScenario(scenario,numCores,corePerComplex):
 
         #need to change it with some statsitical significance test?
         while numSamples < Constants.MAX_SAMPLES:
-            taskSystem = generateTaskSystem(scenario['utilDist'], scenario['period'], scenario['taskUtil'], sysUtil)
+            #taskSystem = generateTaskSystem(scenario['utilDist'], scenario['period'], scenario['taskUtil'], sysUtil)
+            taskSystem = generateTaskSystem(scenario, sysUtil)
 
             #sched1: MC2-SMT-with-isolation
             # taskSystem.levelA.loadSystem(fileLevelA)

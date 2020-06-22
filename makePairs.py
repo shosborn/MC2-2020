@@ -28,6 +28,8 @@ class MakePairsILP:
         self.solver=Model()
         #self.solver.getEnv().set(GRB_IntParam_OutputFlag, 0)
         self.curSystem=curSystem
+        # print("Printing tasksThisLevel")
+        # print(curSystem.tasksThisLevel)
         self.startingTaskID=curSystem.tasksThisLevel[0].ID
 
     
@@ -98,7 +100,13 @@ class MakePairsILP:
                 periodsMatch=(tasksThisLevel[i].period==tasksThisLevel[j].period)
                 #this part of program only runs once, with an assumed cache level
                 myTask=tasksThisLevel[i]
-                #print(myTask.allCosts)
+                '''
+                print()
+                print("Printing taskID and costs.")
+                print(myTask.ID)
+                print(myTask.allUtil)
+                print()
+                '''
                 #pairedCost=system.tasksThisLevel[i].allCosts[(j, system.level, system.assumedCache)]
                 pairedUtil=myTask.allUtil[(j+self.startingTaskID, system.level, system.assumedCache)]
                 
