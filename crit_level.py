@@ -39,72 +39,86 @@ class CritLevelSystem:
             self.threadedClusters=[]
 
 
-    def createTasks(self, possiblePeriods, targetUtil, taskUtilDis, possibleCacheSensitivity, smtEffectDis, possibleWSS, critSensitivity, startingID):
+    def createTasks(self, possiblePeriods, targetUtil, taskUtilDis, possibleCacheSensitivity, smtEffectDis, wssDist, critSensitivity, startingID):
 
-        # WSS is in bytes
+        # Change wss to be from 0 to 32 half-ways
+        # expected value of wss to be on average 2 MB (each way is 1 MB)
+        # Normal centered at 2 MB with standard deviation of 2 MB
+        # truncate low end at 0
+        # save results as MB
         # cache allocation possibilities in half-ways from 0-32
+        
+        print("In createTasks.")
+        
         thisLevelUtil=0
         cacheLevels=Constants.CACHE_LEVELS
         taskID=startingID
+        
+
 
         while thisLevelUtil < targetUtil:
             # set utilization
-            if taskUtilDis[0]=='U':
-                newUtil=random.uniform(taskUtilDis[1], taskUtilDis[2])
-            if taskUtilDis[0]=='N':
-                newUtil=random.normal(taskUtilDis[1], taskUtilDis[2])
-            if newUtil <= 0 :
-                newUtil = 0.01
-            if newUtil > 1:
-                newUtil = 1
+            newUtil=random.uniform(taskUtilDis[0], taskUtilDis[1])
             
             # don't exceed the target
             if thisLevelUtil + newUtil > targetUtil:
+                print("target util exceeded.")
+                lastTask=taskID-1
+                print(startingID, "is first task in level", self.level)
+                print(lastTask, "is last task in level", self.level)
                 break
-               
-            # set period and relative deadline
-            period=relDeadline=random.choice(possiblePeriods)
-            # set crit level sensitivity
-            # set WSS and cacheSensitivity
-            wss=random.choice(possibleWSS)
+
+            if self.level==Constants.LEVEL_A or self.level==Constants.LEVEL_B:
+                period=relDeadline=random.choice(possiblePeriods)
+            if self.level==Constants.LEVEL_C:
+                period=relDeadline=random.uniform(possiblePeriods[0], possiblePeriods[1])
+            wss=random.normal(wssDist[0], wssDist[1])
             cacheSensitivity=random.choice(possibleCacheSensitivity)
             # create task
             newTask = Task(taskID, self.level, period, relDeadline, wss)
             # set solo costs for all crit levels and cache allocations
-            for crit in range(self.level+1, Constants.LEVEL_C + 1):
+            for crit in range(self.level, Constants.LEVEL_C + 1):
                 if crit==self.level:
                     fullCacheUtil=newUtil
                 else:
                     fullCacheUtil=newUtil/(critSensitivity*(crit-self.level))
                 for c in cacheLevels:
-                    # using Josh's formula as of 6/19
-                    # per Josh, formula may need some changes
-                    if c >=wss:
+                    # c is in half-ways
+                    # allocation is in MB, same as WSS
+                    allocation = c * .5 * Constants.WAY_SIZE
+                    if allocation >=wss:
                         thisUtil=fullCacheUtil
                     else:
-                        denom=cacheSensitivity*(c+512 * 2**10)
-                        mult=wss/denom
-                        thisUtil=fullCacheUtil * mult
-                newTask.allUtil[(taskID, crit, c)] = thisUtil
+                        # not sure this is right; Josh please check
+                        # need to avoid dividing by zero
+                        thisUtil = fullCacheUtil * (wss/ (cacheSensitivity * allocation + .01))
+                    newTask.allUtil[(taskID, crit, c)] = thisUtil
+                    '''
+                    print()
+                    print("printing a util.")
+                    print("key=", taskID, crit, c)
+                    print(newTask.allUtil[(taskID, crit, c)])
+                    print()
+                    '''
+                    
             self.tasksThisLevel.append(newTask)
             taskID +=1
+            thisLevelUtil +=newUtil
         # done creating tasks
         lastID=taskID-1
         numTasks=lastID-startingID+1
         '''
-        if self.level==Constants.LEVEL_A or self.level==Constants.LEVEL_B:
-            for task in self.tasksThisLevel:
-                baseUtil=task.allUtil[(task.ID, Constants.LEVEL_C, cacheLevels[len(cacheLevels)-1])]
+        print()
+        print("Printing tasksThisLevel")
+        print(self.tasksThisLevel)
+        print()
         '''
         
         #set up SMT costs
         if self.level==Constants.LEVEL_C:
             for task in self.tasksThisLevel:
                 # determine task's effectivenss
-                if smtEffectDis[0]=='U':
-                    smtEffect=newUtil=random.uniform(taskUtilDis[1], taskUtilDis[2])
-                if smtEffectDis[0]=='N':
-                    smtEffect=random.normal(taskUtilDis[1], taskUtilDis[2])
+                smtEffect=random.normal(taskUtilDis[0], taskUtilDis[1])
                 # value < 1 don't make sense
                 if smtEffect < 1:
                     smtEffect=1
@@ -114,40 +128,48 @@ class CritLevelSystem:
                     soloUtil=task.allUtil[(task.ID, Constants.LEVEL_C, c)]
                     for i in range(0, numTasks):
                         buddyID=self.tasksThisLevel[i].ID
-                        task.allUtil[(buddyID, Constants.LEVEL_C), c] = soloUtil * smtEffect
+                        task.allUtil[(buddyID, Constants.LEVEL_C, c)] = soloUtil * smtEffect
                         
-        if self.level==Constants.LEVEL_A or self.level==Constants.LEVEL_A:
+        if self.level==Constants.LEVEL_A or self.level==Constants.LEVEL_B:
             # determine pair's effectiveness
             for task1 in self.tasksThisLevel:
+                '''
+                print()
+                print("Assigning costs to task", task1.ID)
+                print("lastID=", lastID)
+                '''
                 for task2ID in range(task1.ID+1, lastID+1):
-                    if random() < smtEffectDis[3]:
+                    print()
+                    print("task1ID=", task1.ID)
+                    print("task2ID=", task2ID)
+                    print()
+                    if random.rand() < smtEffectDis[2]:
                         # don't use SMT
                         smtEffect=10
-                    elif smtEffectDis[0]=='U':
-                        smtEffect=newUtil=random.uniform(taskUtilDis[1], taskUtilDis[2])
-                    elif smtEffectDis[0]=='N':
-                        smtEffect=random.normal(taskUtilDis[1], taskUtilDis[2])
+                    else:   
+                        smtEffect=random.normal(taskUtilDis[0], taskUtilDis[1])
                     # negative values don't make sense
                     if smtEffect < 0:
                         smtEffect=0
                         # fill in remaining costs
-                        for c in cacheLevels:
-                            for crit in range(self.level, Constants.LEVEL_C + 1):
-                                soloUtil=soloUtil=task1.allUtil[(task1.ID, crit, c)]
-                                task1.allUtil[(task2ID, crit, c)]=soloUtil * smtEffect
-                                task2=self.tasksThisLevel[task2ID-startingID]
-                                task2.allUtil[(task1.ID, crit, c)]=soloUtil * smtEffect
+                    for c in cacheLevels:
+                        for crit in range(self.level, Constants.LEVEL_C + 1):
+                            task1Util=task1.allUtil[(task1.ID, crit, c)]
+                            task2=self.tasksThisLevel[task2ID-startingID]
+                            task2Util=self.tasksThisLevel[task2ID-startingID].allUtil[(task2.ID, crit, c)]
+                            if task1Util > task2Util:
+                                longTaskUtil=task1Util
+                                shortTaskUtil=task2Util
+                            else:
+                                longTaskUtil=task2Util
+                                shortTaskUtil=task1Util
+                            
+                            jointUtil = longTaskUtil + smtEffect * shortTaskUtil
+                            task1.allUtil[(task2ID, crit, c)]=jointUtil
+                            task2.allUtil[(task1.ID, crit, c)]=jointUtil
                                 
-                    
-                        
-                
-                
-                    
-                
-            
-        
-            
-            
+        print("Finished createTasks.")
+                                
 
     def loadSystem(self, filename):
         '''
@@ -271,12 +293,28 @@ class CritLevelSystem:
 
         In any cache, we need an assumed cache level to start.
         '''
+        firstTask=True
         for thisTask in self.tasksThisLevel:
             thisTask.currentSoloUtil=thisTask.allUtil[(thisTask.ID, self.level, self.assumedCache)]
+            
+            if firstTask:
+                otherTask=self.tasksThisLevel[1]
+                firstTask==False
+            else:
+                otherTask=self.tasksThisLevel[0]
+            
+            print()
+            print("Printing level C task.")
+            print("taskID=", thisTask.ID)
+            print(thisTask.allUtil)
+            
+            threadedUtil=thisTask.allUtil[(otherTask.ID, self.level, self.assumedCache)]
+            '''
             threadedUtil=0
             for otherTask in self.tasksThisLevel:
                 threadedUtil=max(threadedUtil,
                                  thisTask.allUtil[(otherTask.ID, self.level, self.assumedCache)])
+            '''
             thisTask.currentThreadedUtil=threadedUtil
 
             if thisTask.currentSoloUtil<thisTask.currentThreadedUtil/2 or thisTask.currentThreadedUtil>=Constants.MAX_THREADED_UTIL:

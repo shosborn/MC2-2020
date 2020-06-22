@@ -13,7 +13,7 @@ from constants import Constants
 
 class taskSystem:
     
-    def __init__(self, totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA, fileLevelB, fileLevelC):
+    def __init__(self, totalCores, coresPerComplex, cacheSizeL3, assumedCache):
 
         self.platform=HardwarePlatform(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
         self.levelA=CritLevelSystem(Constants.LEVEL_A, assumedCache)

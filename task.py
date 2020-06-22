@@ -18,6 +18,9 @@ class Task:
             self.currentSoloUtil=0
             self.currentThreadedCost = 0
             self.currentThreadedUtil = 0
+        # wss is in MB
+        # 2020 platform has ways of 1MB each
+        # half-ways of 512 KB each.
         self.wss = wss
 
         def __repr__(self):
