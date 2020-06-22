@@ -17,6 +17,7 @@ class Cluster:
 
         self.usedCapacity=self.usedCapacityHigherLevels
         self.threaded=threaded
+        self.clusterID = 0
 
     def testAndAddTask(self, newTask):
         # adds newTask iff doing so won't make system unschedulable

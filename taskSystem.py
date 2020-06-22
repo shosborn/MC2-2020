@@ -10,6 +10,8 @@ Created on Fri May  1 14:25:48 2020
 from hardware_platform import HardwarePlatform
 from crit_level import CritLevelSystem
 from constants import Constants
+from overheads import Overheads
+from schedTest import *
 
 class taskSystem:
     
@@ -98,7 +100,6 @@ def main():
 
     assumedCache=cacheSizeL3
 
-    #where do I add in overheads?
     
     #Test levels A and B
     fileLevelA="levelA-v1.csv"
@@ -109,16 +110,21 @@ def main():
                         fileLevelA, fileLevelB, fileLevelC)
     # test level A
     mySystem.levelA.loadSystem(fileLevelA)
+
     mySystem.levelA.setPairsList()
-    mySystem.levelA.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
-    print(mySystem.levelA.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
+    success = mySystem.levelA.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
+    if not success:
+        print("failed to assign cores at level A")
+        return
     #mySystem.printPairsByCore()
     
     # test level B
     mySystem.levelB.loadSystem(fileLevelB)
     mySystem.levelB.setPairsList()
-    mySystem.levelB.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
-    print(mySystem.levelB.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
+    success = mySystem.levelB.assignToCores(alg=Constants.WORST_FIT, coreList=mySystem.platform.coreList)
+    if not success:
+        print("failed to assign cores at level A")
+        return
    
     
     mySystem.printPairsByCore()
@@ -138,6 +144,17 @@ def main():
         print(t.ID, t.currentThreadedUtil)
     
     mySystem.levelC.divideCores(mySystem.platform.coreList, coresPerComplex)
+
+    mySystem.levelC.assignClusterID()
+    mySystem.levelC.assingClustersToCoreComplex(mySystem.platform.complexList, coresPerComplex)
+
+    print(len(mySystem.platform.complexList))
+    for complex in mySystem.platform.complexList:
+        print("complex: ", complex.complexID)
+        for cluster in complex.clusterList:
+            print(cluster.clusterID, len(cluster.coresThisCluster))
+        print()
+
     print("Solo cores:")
     for c in mySystem.levelC.soloCores:
         print(c.coreID)
@@ -148,11 +165,17 @@ def main():
     
     mySystem.levelC.assignTasksToClusters()
     mySystem.printClusters()
-    print(mySystem.levelC.schedulabilityTest(coreList=mySystem.platform.coreList, allCritLevels=mySystem.levels))
 
+    taskCount = 0
+    for critLevels in mySystem.levels:
+        taskCount += len(critLevels.tasksThisLevel)
+    overhead = Overheads()
+    overhead.loadOverheadData('oheads')
 
-
-
+    print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, scheme=Constants.THREAD_LEVEL_ISOLATION,
+                              dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))
+    print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, scheme=Constants.CORE_LEVEL_ISOLATION,
+                              dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))
 
 
 
