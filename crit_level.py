@@ -11,19 +11,17 @@ from makePairs import MakePairsILP
 from task import Task
 from constants import Constants
 from cluster import Cluster
-import distributions
 import math
 import random
 from overheads import Overheads
 from numpy import random
-from typing import Dict
 
 
 class CritLevelSystem:
 
 
-    def __init__(self, level: int, assumedCache):
-        self.level: int = level
+    def __init__(self, level, assumedCache):
+        self.level = level
         #self.firstInSystem = numHigherCritTasks + 1
 
         self.thePairs = []
@@ -42,49 +40,6 @@ class CritLevelSystem:
             self.soloClusters=[]
             self.threadedClusters=[]
 
-    def _createTask(self, id: int, scenario: Dict[str, str]) -> Task:
-        #compute baseline utilization assuming full cache
-        util_dist = Constants.TASK_UTIL[scenario['taskUtilDist']]
-        baseUtil = distributions.sample_unif_distribution(util_dist)
-
-        #compute period
-        period_dist_by_crit = Constants.PERIOD_DIST[scenario['periodDist']]
-        period_dist = period_dist_by_crit[self.level]
-        if self.level is Constants.LEVEL_C:
-            period = distributions.sample_unif_int_distribution(period_dist)
-        else:
-            period = distributions.sample_choice(period_dist)
-        #compute baseline cost from base util and period
-        baseCost = baseUtil*period
-        #implicit deadlines
-        relDeadline = period
-
-        #compute wss
-        wss_mean, wss_std = Constants.WSS_DIST[scenario['wssDist']]
-        wss = distributions.sample_normal_dist(wss_mean, wss_std)
-        #doesn't make sense if our execution cost is insufficient to load in our wss or wss is 0
-        wss = max([0, wss, baseCost*Constants.SIZE_OF_HALF_WAYS/Constants.CPMD_PER_UNIT[self.level]])
-
-        #randomly choose task's sensitivity to cache
-        cache_sense_dist = Constants.CACHE_SENSITIVITY[scenario['possCacheSensitivity']]
-        cache_sense = distributions.sample_choice(cache_sense_dist)
-
-        #choose how our cost scales at lower levels
-        crit_sense_dist_by_crit = Constants.CRIT_SENSITIVITY[scenario['critSensitivity']]
-        crit_scale_dict = {}
-        prev_scale = 1.0
-        for level in range(self.level, Constants.MAX_LEVEL):
-            assert(0 < prev_scale <= 1.0)
-            crit_sense_mean, crit_sense_std = crit_sense_dist_by_crit[level]
-            tentative_scaling = max([0, distributions.sample_normal_dist(crit_sense_mean, crit_sense_std)])
-            crit_scale_dict[level] = max([prev_scale, tentative_scaling])
-            prev_scale = min([prev_scale, tentative_scaling])
-
-        #return a basic task. Still need to produce any threading related data
-        return Task(id, self.level, baseCost, period, relDeadline, wss, cache_sense, crit_scale_dict)
-
-    def _generate_threading_data(self):
-        return
 
     def createTasks(self, possiblePeriods, targetUtil, taskUtilDis, possibleCacheSensitivity, smtEffectDis, wssDist, critSensitivity, startingID):
 
