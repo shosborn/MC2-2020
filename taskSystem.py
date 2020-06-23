@@ -22,11 +22,10 @@ class taskSystem:
         self.levelB=CritLevelSystem(Constants.LEVEL_B, assumedCache)
         self.levelC=CritLevelSystem(Constants.LEVEL_C, assumedCache)
 
-        self.levels = []
-        self.levels.extend([self.levelA,self.levelB,self.levelC])
+        self.levels = {Constants.LEVEL_A: self.levelA, Constants.LEVEL_B: self.levelB, Constants.LEVEL_C: self.levelC}
         
-        print("Initial list of levels:")
-        print(self.levels)
+        #print("Initial list of levels:")
+        #print(self.levels)
 
     def printPairsByCore(self):
         coreList=self.platform.coreList

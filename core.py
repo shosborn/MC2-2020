@@ -16,10 +16,10 @@ class Core:
         # first element in list is level A
         # second is level B, + level B costs of A
         # third is level C + level C costs of B and A
-        self.utilOnCore=[0, 0, 0]
+        self.utilOnCore={Constants.LEVEL_A: 0, Constants.LEVEL_B: 0, Constants.LEVEL_C: 0}
         # first element will be list for level A,
         # second will be for B
-        self.pairsOnCore=[[],[]]
+        self.pairsOnCore={Constants.LEVEL_A:[], Constants.LEVEL_B: []}
         self.assignedCache=assumedCache
 
         self.cacheAB = [1,1] #L3 cache size (in no of half way) for two threads of this core,

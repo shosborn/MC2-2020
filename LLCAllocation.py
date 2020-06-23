@@ -13,8 +13,67 @@ THREADS_PER_TEST=0
 
 class LLCAllocation:
 
-    def __init__(self):
-        self.solver = Model()
+    def setParam(self, solver):
+        solver.setParam("TimeLimit", TIMEOUT)
+        solver.setParam("SolutionLimit", SOLUTION_LIMIT)
+        solver.setParam(GRB.Param.Threads, THREADS_PER_TEST)
+
+    def setLevelAMinPeriods(self, taskSystem, complex):
+        '''
+        set level-A minimum periods for all cores in a core-complex
+        :param taskSystem: task-system
+        :param complex: core-complex
+        :return:
+        '''
+        for core in complex.coreList:
+            levelAPairsOnCore = core.pairsOnCore[Constants.LEVEL_A]
+            # set min level-A period
+            if len(levelAPairsOnCore) > 0:
+                levelAAllTasks = taskSystem.levelA.tasksThisLevel
+                levelAStartingIndex = levelAAllTasks[0].ID
+                core.minLevelAPeriod = 999999999
+                for pair in levelAPairsOnCore:
+                    core.minLevelAPeriod = min(core.minLevelAPeriod, levelAAllTasks[pair[0] - levelAStartingIndex].period)
+
+    def createIDtoIndexMap(self,complex):
+        '''
+        Create dictionaries which maps each coreID (clusterIDs) to the index at where it is in that complex's coreList (or ClusterList)
+        :param complex: core-complex
+        :return: dictionaries coreIDtoIndex and clusterIDtoIndex
+        '''
+        coreIDtoIndex = {}
+        clusterIDtoIndex = {}
+        index = 0
+        for core in complex.coreList:
+            coreIDtoIndex[core.coreID] = index
+            index += 1
+
+        index = 0
+        for cluster in complex.clusterList:
+            clusterIDtoIndex[cluster.clusterID] = index
+            index += 1
+        return coreIDtoIndex, clusterIDtoIndex
+
+    def initData(self, levelABDimension, levelCDimension):
+        '''
+        initializes arrays for ilp data
+        :param levelABDimension: dimension needed for level-A,-B tasks
+        :param levelCDimension: dimension needed for level-C tasks
+        :return: np arrays of total utilization data (UData), min-utilization data at level-C (hData), and sum of top m-1 utilizations data at level-C (HData)
+        '''
+        UData = {}
+
+        for taskLevel in range(Constants.LEVEL_A, Constants.LEVEL_C + 1):
+            for costLevel in range(taskLevel, Constants.LEVEL_C + 1):
+                if taskLevel <= Constants.LEVEL_B:
+                    UData[(taskLevel, costLevel)] = np.zeros(levelABDimension)
+                else:
+                    UData[(taskLevel, costLevel)] = np.zeros(levelCDimension)
+
+        hData = np.zeros(levelCDimension)
+        HData = np.zeros(levelCDimension)
+        return  UData, hData, HData
+
 
     def threadWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None):
         '''
@@ -27,52 +86,20 @@ class LLCAllocation:
         :return:
         '''
 
-        taskCount = len(taskSystem.levelA.tasksThisLevel) + len(taskSystem.levelB.tasksThisLevel) + len(
-            taskSystem.levelC.tasksThisLevel)
-        overheads.populateOverheadValue(taskCount=taskCount, allCriticalityLevels=taskSystem.levels)
+        self.setLevelAMinPeriods(taskSystem, complex)
 
-        for core in complex.coreList:
-            levelAPairsOnCore = core.pairsOnCore[Constants.LEVEL_A]
-            # set min level-A period
-            if len(levelAPairsOnCore) > 0:
-                levelAAllTasks = taskSystem.levelA.tasksThisLevel
-                levelAStartingIndex = levelAAllTasks[0].ID
-                core.minLevelAPeriod = 999999999
-                for pair in levelAPairsOnCore:
-                    core.minLevelAPeriod = min(core.minLevelAPeriod, levelAAllTasks[pair[0] - levelAStartingIndex].period)
+        coreIDtoIndex, clusterIDtoIndex = self.createIDtoIndexMap(complex)
 
-        UData = {}
+        UData, hData, HData = self.initData((corePerComplex, (maxWays+1), (maxWays+1)), (len(complex.clusterList), (maxWays + 1)))
 
-        coreIDtoIndex = {}
-        clusterIDtoIndex = {}
-        index = 0
-        for core in complex.coreList:
-            coreIDtoIndex[core.coreID] = index
-            index += 1
-
-        index = 0
-        for cluster in complex.clusterList:
-            clusterIDtoIndex[cluster.clusterID] = index
-            index += 1
-
-        for taskLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
-            for costLevel in range(taskLevel, Constants.LEVEL_C+1):
-                if taskLevel <= Constants.LEVEL_B:
-                    UData[(taskLevel, costLevel)] = np.zeros((corePerComplex, (maxWays + 1), (maxWays + 1)))
-                else:
-                    UData[(taskLevel, costLevel)] = np.zeros((len(complex.clusterList), (maxWays + 1)))
-
-        hData = np.zeros((len(complex.clusterList), maxWays + 1))
-        HData = np.zeros((len(complex.clusterList), maxWays + 1))
-
-        for thread1Way in range(0, maxWays + 1):
-            for thread2Way in range(0, maxWays + 1):
+        for thread1Ways in range(0, maxWays + 1):
+            for thread2Ways in range(0, maxWays + 1):
                 for core in complex.coreList:
                     for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
                         #1 way = 2 half way [1,1]
                         #print("core id: ", core.coreID, " pairs: ", len(core.pairsOnCore[taskLevel]), "tasklevel: ",taskLevel)
                         inflatedUtil = overheads.accountOverheadCore(taskLevel=taskLevel, allCritLevels=taskSystem.levels,
-                                                                     core=core, cacheSize=[thread1Way, thread2Way], scheme=Constants.THREAD_LEVEL_ISOLATION,
+                                                                     core=core, cacheSize=[thread1Ways, thread2Ways],
                                                                      dedicatedIRQ = dedicatedIRQ, dedicatedIRQCore = dedicatedIRQCore)
 
                         #print(numWays)
@@ -80,49 +107,50 @@ class LLCAllocation:
 
                         for costLevel in range(taskLevel, Constants.LEVEL_C+1):
                             #utilization at this core when allocated halfways of 'thread1Way' and 'thread2Way'
-                            UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way] = \
+                            UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Ways, thread2Ways] = \
                                 sum(inflatedUtil[(pair,costLevel)] for pair in core.pairsOnCore[taskLevel])
 
 
-                    cpmdLevelAB = overheads.CPMDInflationLevelAB(pairs=core.pairsOnCore[Constants.LEVEL_A], core=core,
+                    cpmdLevelAB = overheads.CPMDInflationLevelAB(core=core,
                                                                  allCriticalityLevels=taskSystem.levels,
-                                                                 cacheSize=[thread1Way, thread2Way],
-                                                                 scheme=Constants.CORE_LEVEL_ISOLATION,
+                                                                 cacheSize=[thread1Ways, thread2Ways],
                                                                  dedicatedIRQ=dedicatedIRQ,
                                                                  dedicatedIRQCore=dedicatedIRQCore)
 
-                    UData[(Constants.LEVEL_A, Constants.LEVEL_B)][coreIDtoIndex[core.coreID], thread1Way, thread2Way] += cpmdLevelAB[Constants.LEVEL_B]
-                    UData[(Constants.LEVEL_A, Constants.LEVEL_C)][coreIDtoIndex[core.coreID], thread1Way, thread2Way] += cpmdLevelAB[Constants.LEVEL_C]
+                    UData[(Constants.LEVEL_A, Constants.LEVEL_B)][coreIDtoIndex[core.coreID], thread1Ways, thread2Ways] += cpmdLevelAB[Constants.LEVEL_B]
+                    UData[(Constants.LEVEL_A, Constants.LEVEL_C)][coreIDtoIndex[core.coreID], thread1Ways, thread2Ways] += cpmdLevelAB[Constants.LEVEL_C]
 
-            #if len == 0, then initialized value is 0
+        for numWays in range(0, maxWays + 1):
             for cluster in complex.clusterList:
                 #generate util considering level-C allocated 'thread1way' number of full ways.
                 inflatedUtil = overheads.accountOverheadCluster(taskLevel=Constants.LEVEL_C, allCritLevels=taskSystem.levels,
                                                                 cluster = cluster,
-                                                                cacheSize = thread1Way * 2, #no of half ways
+                                                                cacheSize = numWays * 2, #no of half ways
                                                                 dedicatedIRQ=dedicatedIRQ,
                                                                 dedicatedIRQCore=dedicatedIRQCore)
                 util = sum(inflatedUtil[(task.ID, Constants.LEVEL_C)] for task in cluster.taskList)
 
                 # utilization at this cluster when allocated full ways of 'thread1Way'
-                UData[(Constants.LEVEL_C, Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID], thread1Way] = util
+                UData[(Constants.LEVEL_C, Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID], numWays] = util
                 levelCUtilValues = list(inflatedUtil.values())
                 sortedLeveCInflatedUtil = sorted(levelCUtilValues, reverse=True)
 
-                hData[clusterIDtoIndex[cluster.clusterID], thread1Way] = sortedLeveCInflatedUtil[0]
-                HData[clusterIDtoIndex[cluster.clusterID], thread1Way] = 0
+                HData[clusterIDtoIndex[cluster.clusterID], numWays] = 0
                 m = len(cluster.coresThisCluster)
                 for i in range(0, min(m - 1, len(sortedLeveCInflatedUtil))):
-                    HData[clusterIDtoIndex[cluster.clusterID], thread1Way] += sortedLeveCInflatedUtil[i]
+                    if i==0:
+                        hData[clusterIDtoIndex[cluster.clusterID], numWays] = sortedLeveCInflatedUtil[i]
+                    HData[clusterIDtoIndex[cluster.clusterID], numWays] += sortedLeveCInflatedUtil[i]
 
-        print(UData[(Constants.LEVEL_A, Constants.LEVEL_A)])
-        print(UData[(Constants.LEVEL_A, Constants.LEVEL_B)])
-        print(UData[(Constants.LEVEL_A, Constants.LEVEL_C)])
-        print(UData[(Constants.LEVEL_B, Constants.LEVEL_B)])
-        print(UData[(Constants.LEVEL_B, Constants.LEVEL_C)])
-        print(UData[(Constants.LEVEL_C, Constants.LEVEL_C)])
-        print(hData)
-        print((HData))
+        if Constants.DEBUG:
+            print(UData[(Constants.LEVEL_A, Constants.LEVEL_A)])
+            print(UData[(Constants.LEVEL_A, Constants.LEVEL_B)])
+            print(UData[(Constants.LEVEL_A, Constants.LEVEL_C)])
+            print(UData[(Constants.LEVEL_B, Constants.LEVEL_B)])
+            print(UData[(Constants.LEVEL_B, Constants.LEVEL_C)])
+            print(UData[(Constants.LEVEL_C, Constants.LEVEL_C)])
+            print(hData)
+            print((HData))
 
 
         solver = Model()
@@ -153,8 +181,6 @@ class LLCAllocation:
 
         # constaints set 1
 
-        print(len(W))
-
         #i and m+i are half ways allocated to same core's threads
         #numThread indexed -> level C full ways
         # 0 to m-1 -> color 0
@@ -163,8 +189,8 @@ class LLCAllocation:
         solver.addConstr(sum(W[i] for i in range(numCores,numThreads)) + W[numThreads] <= maxWays)
 
         #constraints set 2
-        for thread1Way in range(0, maxWays):
-            for thread2Way in range(0, maxWays):
+        for thread1Ways in range(0, maxWays):
+            for thread2Ways in range(0, maxWays):
                 for core in complex.coreList:
                     coreID = core.coreID
                     for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
@@ -180,9 +206,9 @@ class LLCAllocation:
                             (u1-u2)x + (u1-u3)y + u = u1 + (u1-u2)x1 + b(u1-u3)y1
                             rearranging, u = u1 + (u2-u1)(x-x1) + (u3-u1)(y-y1)
                             '''
-                            u1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way]
-                            u2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way+1, thread2Way]
-                            u3 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way+1]
+                            u1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Ways, thread2Ways]
+                            u2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Ways+1, thread2Ways]
+                            u3 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Ways, thread2Ways+1]
 
                             factor1 = u2 - u1
                             factor2 = u3 - u1
@@ -196,16 +222,16 @@ class LLCAllocation:
                                 else:
                                     effectiveDenom = overheads.denom[True][costLevel]
                                 # unit is half way
-                                I_A_term = (thread1Way + thread2Way) * ( Constants.CPMD_PER_UNIT[costLevel] * 2 ) / (effectiveDenom * core.minLevelAPeriod)
+                                I_A_term = (thread1Ways + thread2Ways) * ( Constants.CPMD_PER_UNIT[costLevel] * 2 ) / (effectiveDenom * core.minLevelAPeriod)
                                 solver.addConstr(U[(taskLevel, costLevel, coreID)] - wVarThread1 * factor1
-                                                    - wVarThread2 * factor2 >= u1 - thread1Way * factor1 - thread2Way * factor2
+                                                    - wVarThread2 * factor2 >= u1 - thread1Ways * factor1 - thread2Ways * factor2
                                                         + I_A_term)
                             else:
                                 solver.addConstr(U[(taskLevel, costLevel, coreID)] - wVarThread1 * factor1
-                                                    - wVarThread2 * factor2 >= u1 - thread1Way * factor1 - thread2Way * factor2)
+                                                    - wVarThread2 * factor2 >= u1 - thread1Ways * factor1 - thread2Ways * factor2)
 
-        for thread1Way in range(1, maxWays+1):
-            for thread2Way in range(1, maxWays+1):
+        for thread1Ways in range(1, maxWays+1):
+            for thread2Ways in range(1, maxWays+1):
                 for core in complex.coreList:
                     coreID = core.coreID
                     for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
@@ -215,9 +241,9 @@ class LLCAllocation:
                             util->u for x->ways to thread 1 and y->ways to thread 2
                             three points p1(x1, y1, u1), p2(x1-1, y1, u2), and p3(x1, y1-1, u3)'
                             '''
-                            u1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way]
-                            u2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way-1, thread2Way]
-                            u3 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way-1]
+                            u1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Ways, thread2Ways]
+                            u2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Ways-1, thread2Ways]
+                            u3 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Ways, thread2Ways-1]
 
                             factor1 = u1 - u2
                             factor2 = u1 - u3
@@ -231,15 +257,15 @@ class LLCAllocation:
                                 else:
                                     effectiveDenom = overheads.denom[True][costLevel]
                                 # unit is half way
-                                I_A_term = (thread1Way + thread2Way) * ( Constants.CPMD_PER_UNIT[costLevel] * 2 ) / (effectiveDenom * core.minLevelAPeriod)
+                                I_A_term = (thread1Ways + thread2Ways) * ( Constants.CPMD_PER_UNIT[costLevel] * 2 ) / (effectiveDenom * core.minLevelAPeriod)
                                 solver.addConstr(U[(taskLevel, costLevel, coreID)] - wVarThread1 * factor1
-                                                    - wVarThread2 * factor2 >= u1 - thread1Way * factor1 - thread2Way * factor2
+                                                    - wVarThread2 * factor2 >= u1 - thread1Ways * factor1 - thread2Ways * factor2
                                                         + I_A_term)
                             else:
                                 solver.addConstr(U[(taskLevel, costLevel, coreID)] - wVarThread1 * factor1
-                                                    - wVarThread2 * factor2 >= u1 - thread1Way * factor1 - thread2Way * factor2)
+                                                    - wVarThread2 * factor2 >= u1 - thread1Ways * factor1 - thread2Ways * factor2)
 
-        for numWays in range(0, maxWays - 1):
+        for numWays in range(0, maxWays):
             for cluster in complex.clusterList:
                 #thread1Way = ways allocated to level-C (not splitted between threads)
                 u1 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID], numWays]
@@ -282,9 +308,8 @@ class LLCAllocation:
                                     for core in complex.coreList) + sum(U[Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID]
                                        for cluster in complex.clusterList), GRB.MINIMIZE)
 
-        solver.setParam("TimeLimit", TIMEOUT)
-        solver.setParam("SolutionLimit", SOLUTION_LIMIT)
-        solver.setParam(GRB.Param.Threads, THREADS_PER_TEST)
+
+        self.setParam(solver)
 
         solver.optimize()
 
@@ -295,7 +320,8 @@ class LLCAllocation:
                 core.cacheAB = [size1, size2] #[halfways, halfways]
                 core.cacheC = W[-1].x * 2
                 print(core.coreID, core.cacheAB, core.cacheC)
-            print()
+
+            '''print()
             for cluster in complex.clusterList:
                 print("clusterid: ",cluster.clusterID)
                 for core in cluster.coresThisCluster:
@@ -303,7 +329,7 @@ class LLCAllocation:
                     print(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)].x)
                     print(U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)].x)
                 print(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)].x)
-
+            '''
             return True
 
         return False
@@ -319,43 +345,11 @@ class LLCAllocation:
         :return:
         '''
 
-        taskCount = len(taskSystem.levelA.tasksThisLevel) + len(taskSystem.levelB.tasksThisLevel) + len(
-            taskSystem.levelC.tasksThisLevel)
-        overheads.populateOverheadValue(taskCount=taskCount, allCriticalityLevels=taskSystem.levels)
+        self.setLevelAMinPeriods(taskSystem,complex)
 
-        for core in complex.coreList:
-            levelAPairsOnCore = core.pairsOnCore[Constants.LEVEL_A]
-            # set min level-A period
-            if len(levelAPairsOnCore) > 0:
-                levelAAllTasks = taskSystem.levelA.tasksThisLevel
-                levelAStartingIndex = levelAAllTasks[0].ID
-                core.minLevelAPeriod = 999999999
-                for pair in levelAPairsOnCore:
-                    core.minLevelAPeriod = min(core.minLevelAPeriod, levelAAllTasks[pair[0] - levelAStartingIndex].period)
+        coreIDtoIndex, clusterIDtoIndex = self.createIDtoIndexMap(complex)
 
-        UData = {}
-
-        coreIDtoIndex = {}
-        clusterIDtoIndex = {}
-        index = 0
-        for core in complex.coreList:
-            coreIDtoIndex[core.coreID] = index
-            index += 1
-
-        index = 0
-        for cluster in complex.clusterList:
-            clusterIDtoIndex[cluster.clusterID] = index
-            index += 1
-
-        for taskLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
-            for costLevel in range(taskLevel, Constants.LEVEL_C+1):
-                if taskLevel <= Constants.LEVEL_B:
-                    UData[(taskLevel, costLevel)] = pd.DataFrame(np.zeros((corePerComplex, maxWays + 1)))
-                else:
-                    UData[(taskLevel, costLevel)] = pd.DataFrame(np.zeros((len(complex.clusterList), maxWays + 1)))
-
-        hData = pd.DataFrame(np.zeros((len(complex.clusterList), maxWays + 1)))
-        HData = pd.DataFrame(np.zeros((len(complex.clusterList), maxWays + 1)))
+        UData, hData, HData = self.initData((corePerComplex, maxWays+1), (len(complex.clusterList), maxWays + 1))
 
         for numWays in range(0, maxWays + 1):
             for core in complex.coreList:
@@ -364,26 +358,24 @@ class LLCAllocation:
                     #print("core id: ", core.coreID, " pairs: ", len(core.pairsOnCore[taskLevel]), "tasklevel: ",taskLevel)
                     #utilization when this core is assigned 'numWays' full ways
                     inflatedUtil = overheads.accountOverheadCore(taskLevel=taskLevel, allCritLevels=taskSystem.levels,
-                                                                 core=core, cacheSize=[numWays, numWays], scheme=Constants.CORE_LEVEL_ISOLATION,
+                                                                 core=core, cacheSize=[numWays, numWays],
                                                                  dedicatedIRQ = dedicatedIRQ, dedicatedIRQCore = dedicatedIRQCore)
 
                     #print(numWays)
                     #print(inflatedUtil)
 
                     for costLevel in range(taskLevel, Constants.LEVEL_C+1):
-                        UData[(taskLevel, costLevel)].at[coreIDtoIndex[core.coreID],numWays] = \
+                        UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID],numWays] = \
                             sum(inflatedUtil[(pair,costLevel)] for pair in core.pairsOnCore[taskLevel])
 
-
-                cpmdLevelAB = overheads.CPMDInflationLevelAB(pairs=core.pairsOnCore[Constants.LEVEL_A], core=core,
+                cpmdLevelAB = overheads.CPMDInflationLevelAB(core=core,
                                                              allCriticalityLevels=taskSystem.levels,
                                                              cacheSize=[numWays, numWays],
-                                                             scheme=Constants.CORE_LEVEL_ISOLATION,
                                                              dedicatedIRQ=dedicatedIRQ,
                                                              dedicatedIRQCore=dedicatedIRQCore)
 
-                UData[(Constants.LEVEL_A, Constants.LEVEL_B)].at[coreIDtoIndex[core.coreID],numWays] += cpmdLevelAB[Constants.LEVEL_B]
-                UData[(Constants.LEVEL_A, Constants.LEVEL_C)].at[coreIDtoIndex[core.coreID],numWays] += cpmdLevelAB[Constants.LEVEL_C]
+                UData[(Constants.LEVEL_A, Constants.LEVEL_B)][coreIDtoIndex[core.coreID],numWays] += cpmdLevelAB[Constants.LEVEL_B]
+                UData[(Constants.LEVEL_A, Constants.LEVEL_C)][coreIDtoIndex[core.coreID],numWays] += cpmdLevelAB[Constants.LEVEL_C]
 
             #if len == 0, then initialized value is 0
             for cluster in complex.clusterList:
@@ -393,24 +385,26 @@ class LLCAllocation:
                                                                 dedicatedIRQ=dedicatedIRQ,
                                                                 dedicatedIRQCore=dedicatedIRQCore)
                 util = sum(inflatedUtil[(task.ID, Constants.LEVEL_C)] for task in cluster.taskList)
-                UData[(Constants.LEVEL_C, Constants.LEVEL_C)].at[clusterIDtoIndex[cluster.clusterID], numWays] = util
+                UData[(Constants.LEVEL_C, Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID], numWays] = util
                 levelCUtilValues = list(inflatedUtil.values())
                 sortedLeveCInflatedUtil = sorted(levelCUtilValues, reverse=True)
 
-                hData.at[clusterIDtoIndex[cluster.clusterID],numWays] = sortedLeveCInflatedUtil[0]
-                HData.at[clusterIDtoIndex[cluster.clusterID],numWays] = 0
+
                 m = len(cluster.coresThisCluster)
                 for i in range(0, min(m - 1, len(sortedLeveCInflatedUtil))):
-                    HData.at[clusterIDtoIndex[cluster.clusterID],numWays] += sortedLeveCInflatedUtil[i]
+                    if i==0:
+                        hData[clusterIDtoIndex[cluster.clusterID], numWays] = sortedLeveCInflatedUtil[i]
+                    HData[clusterIDtoIndex[cluster.clusterID],numWays] += sortedLeveCInflatedUtil[i]
 
-        print(UData[(Constants.LEVEL_A,Constants.LEVEL_A)])
-        print(UData[(Constants.LEVEL_A,Constants.LEVEL_B)])
-        print(UData[(Constants.LEVEL_A,Constants.LEVEL_C)])
-        print(UData[(Constants.LEVEL_B,Constants.LEVEL_B)])
-        print(UData[(Constants.LEVEL_B,Constants.LEVEL_C)])
-        print(UData[(Constants.LEVEL_C,Constants.LEVEL_C)])
-        print(hData)
-        print((HData))
+        if Constants.DEBUG:
+            print(UData[(Constants.LEVEL_A,Constants.LEVEL_A)])
+            print(UData[(Constants.LEVEL_A,Constants.LEVEL_B)])
+            print(UData[(Constants.LEVEL_A,Constants.LEVEL_C)])
+            print(UData[(Constants.LEVEL_B,Constants.LEVEL_B)])
+            print(UData[(Constants.LEVEL_B,Constants.LEVEL_C)])
+            print(UData[(Constants.LEVEL_C,Constants.LEVEL_C)])
+            print(hData)
+            print((HData))
 
 
         solver = Model()
@@ -445,8 +439,8 @@ class LLCAllocation:
 
                 for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
                     for costLevel in range(taskLevel, Constants.LEVEL_C+1):
-                        x1 = UData[(taskLevel, costLevel)].at[coreIDtoIndex[core.coreID], numWays]
-                        x2 = UData[(taskLevel, costLevel)].at[coreIDtoIndex[core.coreID], numWays+1]
+                        x1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], numWays]
+                        x2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], numWays+1]
 
                         if taskLevel == Constants.LEVEL_A and costLevel >= Constants.LEVEL_B and len(core.pairsOnCore[Constants.LEVEL_A]) > 0:
                             if dedicatedIRQ and dedicatedIRQCore != core:
@@ -462,20 +456,20 @@ class LLCAllocation:
                                                 >= x1 - numWays * (x2 - x1))
 
             for cluster in complex.clusterList:
-                x1 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)].at[clusterIDtoIndex[cluster.clusterID],numWays]
-                x2 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)].at[clusterIDtoIndex[cluster.clusterID],numWays+1]
+                x1 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID],numWays]
+                x2 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID],numWays+1]
 
                 solver.addConstr(U[(Constants.LEVEL_C,Constants.LEVEL_C, cluster.clusterID)] - W[-1] * (x2-x1)
                                                     >= x1 - numWays * (x2-x1))
 
                 #constraint set 3
-                x1 = hData.at[clusterIDtoIndex[cluster.clusterID],numWays]
-                x2 = hData.at[clusterIDtoIndex[cluster.clusterID],numWays+1]
+                x1 = hData[clusterIDtoIndex[cluster.clusterID],numWays]
+                x2 = hData[clusterIDtoIndex[cluster.clusterID],numWays+1]
 
                 solver.addConstr(h[cluster.clusterID] - W[-1] * (x2 - x1) >= x1 - numWays * (x2-x1))
 
-                x1 = HData.at[clusterIDtoIndex[cluster.clusterID], numWays]
-                x2 = HData.at[clusterIDtoIndex[cluster.clusterID], numWays + 1]
+                x1 = HData[clusterIDtoIndex[cluster.clusterID], numWays]
+                x2 = HData[clusterIDtoIndex[cluster.clusterID], numWays + 1]
 
                 solver.addConstr(H[cluster.clusterID] - W[-1] * (x2 - x1) >= x1 - numWays * (x2 - x1))
 
@@ -502,9 +496,7 @@ class LLCAllocation:
                                     for core in complex.coreList) + sum(U[Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID]
                                        for cluster in complex.clusterList), GRB.MINIMIZE)
 
-        solver.setParam("TimeLimit", TIMEOUT)
-        solver.setParam("SolutionLimit", SOLUTION_LIMIT)
-        solver.setParam(GRB.Param.Threads, THREADS_PER_TEST)
+        self.setParam(solver)
 
         solver.optimize()
 
@@ -520,7 +512,7 @@ class LLCAllocation:
                 core.cacheC = W[-1].x * 2
                 print(core.coreID, core.cacheAB, core.cacheC)
             print("-----------")
-            print()
+
             '''for cluster in complex.clusterList:
                 print("clusterid: ",cluster.clusterID)
                 for core in cluster.coresThisCluster:
@@ -530,6 +522,8 @@ class LLCAllocation:
                 print(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)].x)'''
             return True
         return False
+
+
 
 
 def main():

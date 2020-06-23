@@ -29,7 +29,7 @@ class Overheads:
         :param dirName: directory where overhead data are stored
         :return:
         '''
-        critMap = {'A':0, 'B': 1, 'C':2}
+        critMap = {'A':Constants.LEVEL_A, 'B': Constants.LEVEL_B, 'C':Constants.LEVEL_C}
         overheadData = defaultdict()
         for critLevelKey  in critMap:
             critLevelValue = critMap[critLevelKey]
@@ -138,7 +138,7 @@ class Overheads:
         return self.montonicInterpolation(taskCount,costLevel,overhead)
 
 
-    def getCPMDLevelA(self,pairs,tasks,core,cacheSize,scheme):
+    def getCPMDLevelA(self,core,tasks,cacheSize):
         '''
         calculate cache related preemption delay of level-A tasks of a core
         task-centric accounting of level-A tasks according to N.Kim et al real-time systems journal paper.
@@ -150,10 +150,10 @@ class Overheads:
         :param tasks: all tasks at criticality level-'taskLevel'
         :param core: considered core
         :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
-        :param scheme: cache allocation scheme
         :return: A dictionary of (pair, execution level)->cpmd cost
         '''
         cpmd = {}
+        pairs = core.pairsOnCore[Constants.LEVEL_A]
         if len(pairs) == 0:
             return cpmd
         startingTaskID = tasks[0].ID
@@ -162,21 +162,18 @@ class Overheads:
         for pair in pairs:
             numSlices = tasks[pair[0]-startingTaskID].period / minPeriod  #n.kim et al journal paper page 27
 
-            if scheme == Constants.THREAD_LEVEL_ISOLATION:
-                # for paired task max cache size among two threads dominates
-                # solo task can use min cache size * 2 (since can see full way)
-                cachePair = max(cacheSize) if pair[0]!=pair[1] else min(cacheSize) * 2
-            else:
-                #core-level isolation, same cachesize to be cosidered for both solo and paired
-                cachePair = cacheSize[0]+cacheSize[1]
+            # for paired task max cache size among two threads dominates
+            # solo task can use min cache size * 2 (since can see full way)
+            cachePair = max(cacheSize) if pair[0]!=pair[1] else min(cacheSize) * 2
 
             for costLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
-                inflation = (numSlices - 1) * min(tasks[pair[0]-startingTaskID].getWss(),cachePair) * Constants.CPMD_PER_UNIT[costLevel]
+                maxWss = max(tasks[pair[0]-startingTaskID].getWss(), tasks[pair[1]-startingTaskID].getWss())
+                inflation = (numSlices - 1) * min(maxWss,cachePair) * Constants.CPMD_PER_UNIT[costLevel]
                 cpmd[(pair,costLevel)] = inflation
 
         return cpmd
 
-    def getCPMDLevelB(self,pairs,tasks,cacheSize,scheme):
+    def getCPMDLevelB(self,core,tasks,cacheSize):
         '''
         calculate preemption-centric cache related preemption and migration delay for a core.
         applies for preemption of level-B tasks by level-B tasks
@@ -184,10 +181,9 @@ class Overheads:
         :param pairs: pairs of criticality level-'taskLevel' assigned to a core/ core-complex
         :param tasks: all tasks at level-'taskLevel'
         :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
-        :param scheme: cache allocation scheme
         :return: A dictionary of execution level -> cost
         '''
-
+        pairs = core.pairsOnCore[Constants.LEVEL_B]
         if len(pairs) <= 1:
             #no cpmd in same level if 0 or 1 tasks in core
             return {Constants.LEVEL_B:0,Constants.LEVEL_C:0}
@@ -199,12 +195,14 @@ class Overheads:
 
         maxWSS = max(effectivePairWSS)
 
-        if scheme==Constants.THREAD_LEVEL_ISOLATION:
-            #maxmimum among what can be seen by threaded or solo tasks
-            effectiveCacheThread = max(max(cacheSize), min(cacheSize)*2)
+        #works for both scheme
+        soloCount = [pair for pair in pairs if pair[0]==pair[1]]
+        if soloCount == 0:
+            effectiveCacheThread = max(cacheSize)
+        elif soloCount == len(pairs):
+            effectiveCacheThread = min(cacheSize)*2
         else:
-            #for core-level, whole cache of this core
-            effectiveCacheThread = cacheSize[0] + cacheSize[1]
+            effectiveCacheThread = max(max(cacheSize), min(cacheSize)*2)
 
         cpmd = {}
         for costLevel in (Constants.LEVEL_B,Constants.LEVEL_C):
@@ -236,10 +234,9 @@ class Overheads:
 
         return cpmd
 
-    def CPMDInflationLevelAB(self,pairs,core,allCriticalityLevels,cacheSize,scheme,dedicatedIRQ=False,dedicatedIRQCore=False):
+    def CPMDInflationLevelAB(self,core,allCriticalityLevels,cacheSize,dedicatedIRQ=False,dedicatedIRQCore=False):
         '''
         extra utilization term for a core at level-B,-C analysis due to level-A tasks preempting level-B tasks and affect their cache affinity
-        :param pairs: level-B pairs of a core
         :param tasks: all tasks at level-B
         :param costLevel: level of execution to be considered
         :param core: for which core
@@ -247,8 +244,10 @@ class Overheads:
         :param dedicatedIRQCore: if dedicated interrupts then the core handling interrupts
         :return: utilization term need to be added
         '''
+        levelBPairs = core.pairsOnCore[Constants.LEVEL_B]
+        levelAPairs = core.pairsOnCore[Constants.LEVEL_A]
         #no level-B task in this core
-        if len(pairs) == 0:
+        if len(levelBPairs) == 0 or len(levelAPairs) == 0:
             return {Constants.LEVEL_B:0, Constants.LEVEL_C:0}
 
         #otherwise
@@ -257,15 +256,17 @@ class Overheads:
         minPeriod = core.minLevelAPeriod
 
         effectivePairWSS = [max(tasks[pair[0] - startingTaskID].getWss(), tasks[pair[1] - startingTaskID].getWss()) for pair in
-                            pairs]
+                            levelBPairs]
         maxWSS = max(effectivePairWSS)
 
-        if scheme == Constants.THREAD_LEVEL_ISOLATION:
-            # maxmimum among what can be seen by threaded or solo tasks
-            effectiveCacheThread = max(max(cacheSize), min(cacheSize) * 2)
+        #works for both scheme
+        soloCount = [pair for pair in levelBPairs if pair[0] == pair[1]]
+        if soloCount == 0:
+            effectiveCacheThread = max(cacheSize)
+        elif soloCount == len(levelBPairs):
+            effectiveCacheThread = min(cacheSize) * 2
         else:
-            # for core-level, whole cache of this core
-            effectiveCacheThread = cacheSize[0] + cacheSize[1]
+            effectiveCacheThread = max(max(cacheSize), min(cacheSize) * 2)
 
         cpmdUtil = {}
         for costLevel in (Constants.LEVEL_B,Constants.LEVEL_C):
@@ -278,14 +279,16 @@ class Overheads:
             else:
                 denom, cpre = self.denom[False][costLevel], self.cPre[False][costLevel]
 
-            cpmdUtil[costLevel] = (cpmd / denom)/minPeriod #the term I^B_{A,p} of rts journal 15 paper, page 28
+            cpmdUtil[costLevel] = (cpmd / denom) #the term I^B_{A,p} of rts journal 15 paper, page 28
+
+            cpmdUtil[costLevel] /= minPeriod
 
         return cpmdUtil
 
     def irqCosts(self, allCritLevels, considerIRQ=False):
         '''
-        compute values to account irq overheads accross 3 levels of execution
-        :param allCritLevels: list of all criticality level objects (since all tasks are needed here)
+        compute values to account irq overheads across 3 levels of execution
+        :param allCritLevels: dictionary of all criticality level objects (since all tasks are needed here)
         :param considerIRQ: whether release interrupts to consider or not
         :return:
         '''
@@ -295,15 +298,15 @@ class Overheads:
             releaseLatency = self.overheadValue['releaseLatency'][costLevel] #Delta_ev
             release = self.overheadValue['release'][costLevel] #Delta_rel
 
-            eTick = (tick + Constants.CPI_PER_UNIT[costLevel]) #page 251
-            eIrq = (release + Constants.CPI_PER_UNIT[costLevel]) #page 251
+            eTick = tick #page 251
+            eIrq = release #page 251
             uTick = eTick / Constants.QUANTUM_LENGTH #page 251
 
             uRelease = 0 #third term of denominator of Expression 3.17
             cPre = eTick + releaseLatency * uTick  # first two terms of numerator of 3.18
 
             if considerIRQ:
-                for critLevel in allCritLevels:
+                for critLevel in allCritLevels.values():
                     for task in critLevel.tasksThisLevel:
                         uIrq = (eIrq / task.period)
                         uRelease += uIrq # u^irq = (eIrq /task.period), page 251 (there may be a typo in page 251 about this eqn)
@@ -322,8 +325,8 @@ class Overheads:
 
     def populateIRQCosts(self,allCriticalityLevels):
         '''
-        populate demon and cpre values for accounting interrupts (both considering release interrupts and not)
-        :param allCriticalityLevels: all criticality levels
+        populate denom and cpre values for accounting interrupts (both considering release interrupts and not)
+        :param allCriticalityLevels: dictionary of all criticality levels
         :return:
         '''
         # considering release interrupt cost (usage: if not dedicated interrupt or for the core handling interrupt if dedicated interrupt used)
@@ -335,7 +338,7 @@ class Overheads:
         '''
         populate all overhead values for no of tasks=taskcount
         :param taskCount: no of tasks
-        :param allCriticalityLevels: all criticality levels
+        :param allCriticalityLevels: dictionary of all criticality levels
         :return:
         '''
         for oheadName in Constants.OVERHEAD_TYPES:
@@ -344,11 +347,11 @@ class Overheads:
                 self.overheadValue[oheadName][costLevel] = self.getOverheadValue(taskCount,costLevel,oHeadCode)
         self.populateIRQCosts(allCriticalityLevels)
 
-    def accountOverheadCore(self, taskLevel, allCritLevels, core, cacheSize, scheme, dedicatedIRQ=False, dedicatedIRQCore=None):
+    def accountOverheadCore(self, taskLevel, allCritLevels, core, cacheSize, dedicatedIRQ=False, dedicatedIRQCore=None):
         '''
         Account for overhead of level-A or -B tasks of a core
         :param taskLevel: taskss' criticality level
-        :param allCritLevels: list of all criticality levels
+        :param allCritLevels: dictionary of all criticality levels
         :param core: core for which overhead is accounted
         :param cacheSize size of allocated cache
         :param scheme scheme of level-A,-B cache allocation
@@ -365,11 +368,11 @@ class Overheads:
         #cache delay for all pairs at this level of this core
         if taskLevel == Constants.LEVEL_A:
             # for budgeted implementation of cyclic executing. ref. n.kim journal paper 2017
-            cpmd = self.getCPMDLevelA(pairs=core.pairsOnCore[taskLevel], tasks=tasksCritLevel,scheme=scheme,
+            cpmd = self.getCPMDLevelA(tasks=tasksCritLevel,
                                        cacheSize=cacheSize, core=core)  # dictionary of (pair,costLevel)->cost
         else:
-            cpmd = self.getCPMDLevelB(pairs=core.pairsOnCore[taskLevel], tasks=tasksCritLevel,
-                                        scheme=scheme,cacheSize=cacheSize)
+            cpmd = self.getCPMDLevelB(tasks=tasksCritLevel,
+                                        cacheSize=cacheSize,core=core)
 
         #consider all criticality levels at or below for the tasks at critLevel
         for costLevel in range(taskLevel, Constants.LEVEL_C+1):
@@ -403,10 +406,10 @@ class Overheads:
                     thisPairUtil = tasksCritLevel[pair[0]-startingTaskID].allUtil[(pair[1], costLevel,  cacheSize[0]+cacheSize[1])]
                 #solo task
                 else:
-                    thisPairUtil = tasksCritLevel[pair[0] - startingTaskID].allUtil[(pair[1], costLevel,
+                    '''thisPairUtil = tasksCritLevel[pair[0] - startingTaskID].allUtil[(pair[1], costLevel,
                                          cacheSize[0] + cacheSize[1])] if scheme==Constants.CORE_LEVEL_ISOLATION else tasksCritLevel[
-                                                    pair[0] - startingTaskID].allUtil[(pair[1], costLevel, min(cacheSize)*2)]
-
+                                                    pair[0] - startingTaskID].allUtil[(pair[1], costLevel, min(cacheSize)*2)]'''
+                    thisPairUtil = tasksCritLevel[pair[0] - startingTaskID].allUtil[(pair[1], costLevel, min(cacheSize)*2)]
                 thisPairCost = thisPairUtil * thisPairPeriod
                 origCost = thisPairCost
 
@@ -414,7 +417,7 @@ class Overheads:
                     # add cpmd overhead
                     thisPairCost += cpmd[(pair,costLevel)]
                     # ctx switch overhead for each slice and single sched overhead, num_slices * ctx + sched
-                    thisPairCost += (thisPairPeriod / core.minLevelAPeriod) * contextSwitch + schedOverhead
+                    thisPairCost += (thisPairPeriod / core.minLevelAPeriod) * (contextSwitch + schedOverhead)
                     #smt overhead similar to ctx overhead
                     thisPairCost += (thisPairPeriod / core.minLevelAPeriod) * smtOverhead
                 else:
@@ -447,7 +450,7 @@ class Overheads:
         '''
         Account for overhead for level-C tasks of a cluster
         :param taskLevel: tasks' level (level-C)
-        :param allCritLevels: list of all criticality levels
+        :param allCritLevels: dictionary of all criticality levels
         :param cluster: cluster for which overhead is accounted
         :param cacheSize: size of allocated cache
         :param additionalCluster for a single core complex, there can be two clusters (one solo, one threaded). need the additionalCluster for level-C cache delay measuring
@@ -540,7 +543,7 @@ class Overheads:
         :param costLevel: execution criticality level
         :param taskCount: Number of tasks
         :param coreList: list of cores
-        :param allCriticalityLevels: list of all criticality levels
+        :param allCriticalityLevels: dictionary of all criticality levels
         :return: A dictionary of pair -> util after accounting overheads
         '''
         #store inflated pairs. Not altering original tasks parameters. They may be needed to compare with other schedulers.

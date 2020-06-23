@@ -1,7 +1,7 @@
 from constants import Constants
 
 
-def schedTestTaskSystem(taskSystem, overhead, scheme, dedicatedIRQ, dedicatedIRQCore = None):
+def schedTestTaskSystem(taskSystem, overhead, dedicatedIRQ, dedicatedIRQCore = None):
     '''
     sched test for full task system
     :param taskSystem: tasksystem to be tested
@@ -36,22 +36,21 @@ def schedTestTaskSystem(taskSystem, overhead, scheme, dedicatedIRQ, dedicatedIRQ
 
                 # level A tasks inflation accross all levels of exec
                 levelAInflatedUtil = overhead.accountOverheadCore(taskLevel=Constants.LEVEL_A, allCritLevels=taskSystem.levels,
-                                             core=core, cacheSize=core.getAssignedCache(Constants.LEVEL_A), scheme=scheme,
+                                             core=core, cacheSize=core.getAssignedCache(Constants.LEVEL_A),
                                              dedicatedIRQ = dedicatedIRQ, dedicatedIRQCore = dedicatedIRQCore)
 
                 #level B tasks inflation accross all at or below levels of exec
                 levelBInflatedUtil = overhead.accountOverheadCore(taskLevel=Constants.LEVEL_B,
                                                                   allCritLevels=taskSystem.levels,
                                                                   core=core,
-                                                                  cacheSize=core.getAssignedCache(Constants.LEVEL_B),scheme=scheme,
+                                                                  cacheSize=core.getAssignedCache(Constants.LEVEL_B),
                                                                   dedicatedIRQ=dedicatedIRQ,
                                                                   dedicatedIRQCore=dedicatedIRQCore)
 
                 #cache delay due to cache affinity loss by preemption of level-B tasks by level-A tasks
-                cpmdLevelAB = overhead.CPMDInflationLevelAB(pairs=core.pairsOnCore[Constants.LEVEL_A],core=core,
+                cpmdLevelAB = overhead.CPMDInflationLevelAB(core=core,
                                                             allCriticalityLevels=taskSystem.levels,
                                                             cacheSize = core.getAssignedCache(Constants.LEVEL_B),
-                                                            scheme = scheme,
                                                             dedicatedIRQ=dedicatedIRQ,dedicatedIRQCore=dedicatedIRQCore)
 
                 #U_taskLevel_costLevel
@@ -91,7 +90,7 @@ def schedTestTaskSystem(taskSystem, overhead, scheme, dedicatedIRQ, dedicatedIRQ
 
             levelCUtilValues = list(levelCInflatedUtil.values())
             sortedLeveCInflatedUtil = sorted(levelCUtilValues,reverse=True)
-            h = sortedLeveCInflatedUtil[0]
+            h = sortedLeveCInflatedUtil[0] if len(sortedLeveCInflatedUtil)>0 else 0
             H = 0
             m=len(cluster.coresThisCluster)
             for i in range(0,min(m-1,len(sortedLeveCInflatedUtil))):
