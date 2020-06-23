@@ -163,12 +163,23 @@ class LLCAllocation:
         solver.addConstr(sum(W[i] for i in range(numCores,numThreads)) + W[numThreads] <= maxWays)
 
         #constraints set 2
-        for thread1Way in range(0, maxWays - 1):
-            for thread2Way in range(0, maxWays - 1):
+        for thread1Way in range(0, maxWays):
+            for thread2Way in range(0, maxWays):
                 for core in complex.coreList:
                     coreID = core.coreID
                     for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
                         for costLevel in range(taskLevel, Constants.LEVEL_C+1):
+                            '''
+                            approximate ax+by+zu = d using three points in space
+                            util->u for x->ways to thread 1 and y->ways to thread 2
+                            three points p1(x1, y1, u1), p2(x1+1, y1, u2), and p3(x1, y1+1, u3)
+                            vector r12 = (1, 0, u2-u1), r13 = (0, 1, u3-u1)
+                            normal vector = (u1-u2, u1-u3, 1)
+                            so, a=(u1-u2), b=(u1-u3), c=1
+                            d = (u1-u2)x1 + b(u1-u3)y1 + u1, plugging p1
+                            (u1-u2)x + (u1-u3)y + u = u1 + (u1-u2)x1 + b(u1-u3)y1
+                            rearranging, u = u1 + (u2-u1)(x-x1) + (u3-u1)(y-y1)
+                            '''
                             u1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way]
                             u2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way+1, thread2Way]
                             u3 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way+1]
@@ -193,12 +204,17 @@ class LLCAllocation:
                                 solver.addConstr(U[(taskLevel, costLevel, coreID)] - wVarThread1 * factor1
                                                     - wVarThread2 * factor2 >= u1 - thread1Way * factor1 - thread2Way * factor2)
 
-        for thread1Way in range(1, maxWays):
-            for thread2Way in range(1, maxWays):
+        for thread1Way in range(1, maxWays+1):
+            for thread2Way in range(1, maxWays+1):
                 for core in complex.coreList:
                     coreID = core.coreID
                     for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
                         for costLevel in range(taskLevel, Constants.LEVEL_C+1):
+                            '''
+                            approximate ax+by+zu = d using three points in space
+                            util->u for x->ways to thread 1 and y->ways to thread 2
+                            three points p1(x1, y1, u1), p2(x1-1, y1, u2), and p3(x1, y1-1, u3)'
+                            '''
                             u1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way]
                             u2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way-1, thread2Way]
                             u3 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], thread1Way, thread2Way-1]
@@ -229,19 +245,19 @@ class LLCAllocation:
                 u1 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID], numWays]
                 u2 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID], numWays+1]
 
-                solver.addConstr(U[(Constants.LEVEL_C,Constants.LEVEL_C, cluster.clusterID)] - W[len(complex.coreList)] * (u2-u1)
+                solver.addConstr(U[(Constants.LEVEL_C,Constants.LEVEL_C, cluster.clusterID)] - W[-1] * (u2-u1)
                                                     >= u1 - numWays * (u2-u1))
 
                 #constraint set 3
                 u1 = hData[clusterIDtoIndex[cluster.clusterID], numWays]
                 u2 = hData[clusterIDtoIndex[cluster.clusterID], numWays+1]
 
-                solver.addConstr(h[cluster.clusterID] - W[len(complex.coreList)] * (u2 - u1) >= u1 - numWays * (u2-u1))
+                solver.addConstr(h[cluster.clusterID] - W[-1] * (u2 - u1) >= u1 - numWays * (u2-u1))
 
                 u1 = HData[clusterIDtoIndex[cluster.clusterID], numWays]
                 u2 = HData[clusterIDtoIndex[cluster.clusterID], numWays + 1]
 
-                solver.addConstr(H[cluster.clusterID] - W[len(complex.coreList)] * (u2 - u1) >= u1 - numWays * (u2 - u1))
+                solver.addConstr(H[cluster.clusterID] - W[-1] * (u2 - u1) >= u1 - numWays * (u2 - u1))
 
         #constraint set 4
         for core in complex.coreList:
@@ -377,7 +393,7 @@ class LLCAllocation:
                                                                 dedicatedIRQ=dedicatedIRQ,
                                                                 dedicatedIRQCore=dedicatedIRQCore)
                 util = sum(inflatedUtil[(task.ID, Constants.LEVEL_C)] for task in cluster.taskList)
-                UData[(Constants.LEVEL_C, Constants.LEVEL_C)].at[clusterIDtoIndex[cluster.clusterID],numWays] = util
+                UData[(Constants.LEVEL_C, Constants.LEVEL_C)].at[clusterIDtoIndex[cluster.clusterID], numWays] = util
                 levelCUtilValues = list(inflatedUtil.values())
                 sortedLeveCInflatedUtil = sorted(levelCUtilValues, reverse=True)
 
@@ -424,7 +440,7 @@ class LLCAllocation:
         solver.addConstr(sum(W[i] for i in range(0,len(complex.coreList)+1)) <= maxWays)
 
         #constraints set 2
-        for numWays in range(0,maxWays-1):
+        for numWays in range(0,maxWays):
             for core in complex.coreList:
 
                 for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
@@ -438,7 +454,7 @@ class LLCAllocation:
                             else:
                                 effectiveDenom = overheads.denom[True][costLevel]
                             # unit is half way
-                            I_A_term = numWays * ( Constants.CPMD_PER_UNIT[costLevel] * 2 ) / (effectiveDenom * core.minLevelAPeriod)
+                            I_A_term = numWays * (Constants.CPMD_PER_UNIT[costLevel] * 2) / (effectiveDenom * core.minLevelAPeriod)
                             solver.addConstr(U[(taskLevel, costLevel, core.coreID)] - W[coreIDtoIndex[core.coreID]] * (x2 - x1)
                                                 >= x1 - numWays * (x2 - x1) + I_A_term)
                         else:
@@ -449,19 +465,19 @@ class LLCAllocation:
                 x1 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)].at[clusterIDtoIndex[cluster.clusterID],numWays]
                 x2 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)].at[clusterIDtoIndex[cluster.clusterID],numWays+1]
 
-                solver.addConstr(U[(Constants.LEVEL_C,Constants.LEVEL_C, cluster.clusterID)] - W[len(complex.coreList)] * (x2-x1)
+                solver.addConstr(U[(Constants.LEVEL_C,Constants.LEVEL_C, cluster.clusterID)] - W[-1] * (x2-x1)
                                                     >= x1 - numWays * (x2-x1))
 
                 #constraint set 3
                 x1 = hData.at[clusterIDtoIndex[cluster.clusterID],numWays]
                 x2 = hData.at[clusterIDtoIndex[cluster.clusterID],numWays+1]
 
-                solver.addConstr(h[cluster.clusterID] - W[len(complex.coreList)] * (x2 - x1) >= x1 - numWays * (x2-x1))
+                solver.addConstr(h[cluster.clusterID] - W[-1] * (x2 - x1) >= x1 - numWays * (x2-x1))
 
                 x1 = HData.at[clusterIDtoIndex[cluster.clusterID], numWays]
                 x2 = HData.at[clusterIDtoIndex[cluster.clusterID], numWays + 1]
 
-                solver.addConstr(H[cluster.clusterID] - W[len(complex.coreList)] * (x2 - x1) >= x1 - numWays * (x2 - x1))
+                solver.addConstr(H[cluster.clusterID] - W[-1] * (x2 - x1) >= x1 - numWays * (x2 - x1))
 
         #constraint set 4
         for core in complex.coreList:

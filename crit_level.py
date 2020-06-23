@@ -252,8 +252,8 @@ class CritLevelSystem:
                     taskID = int(arr[0])
                     #print("taskID=", taskID)
                     period = relDeadline = int(arr[1])
-                    newTask = Task(taskID, self.level, period, relDeadline)
-                    newTask = Task(taskID, self.level, period*1000, relDeadline*1000) # to test
+                    newTask = Task(taskID, self.level, period, relDeadline, 1)
+                    newTask = Task(taskID, self.level, period*1000, relDeadline*1000, 1) # to test
                     for column in range(2, len(arr)):
                         # add util to newTask.allUtil with the appropriate key
                         keyList = headerArr[column].split("-")
@@ -513,7 +513,7 @@ class CritLevelSystem:
         # all tasks were successfully placed onto a cluster
         return True
 
-    def assingClustersToCoreComplex(self,complexList,corePerComplex):
+    def assignClustersToCoreComplex(self,complexList,corePerComplex):
         complexNo = 0
         sharedSoloCluster = None
         sharedThreadedCluster = None

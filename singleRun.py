@@ -19,8 +19,7 @@ def main():
     fileLevelB = "levelB-v1.csv"
     fileLevelC = "levelC-v1.csv"
 
-    mySystem = taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache,
-                          fileLevelA, fileLevelB, fileLevelC)
+    mySystem = taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
     # test level A
     mySystem.levelA.loadSystem(fileLevelA)
 
@@ -58,7 +57,7 @@ def main():
     mySystem.levelC.divideCores(mySystem.platform.coreList, coresPerComplex)
 
     mySystem.levelC.assignClusterID()
-    mySystem.levelC.assingClustersToCoreComplex(mySystem.platform.complexList, coresPerComplex)
+    mySystem.levelC.assignClustersToCoreComplex(mySystem.platform.complexList, coresPerComplex)
 
     print(len(mySystem.platform.complexList))
     for complex in mySystem.platform.complexList:
@@ -90,9 +89,10 @@ def main():
                               dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))'''
 
     solver = LLCAllocation()
-    #solver.coreWiseAllocation(mySystem, 8, overhead, mySystem.platform.complexList[1], coresPerComplex, True, mySystem.platform.coreList[0])
+    #mySystem.platform.complexList[1].clusterList = [] #check if can handle empty cluster
+    #solver.threadWiseAllocation(mySystem, 8, overhead, mySystem.platform.complexList[1], coresPerComplex, True, mySystem.platform.coreList[0])
     for complex in mySystem.platform.complexList:
-        if not solver.coreWiseAllocation(mySystem, 8, overhead, complex, coresPerComplex, True, mySystem.platform.coreList[0]):
+        if not solver.threadWiseAllocation(mySystem, 8, overhead, complex, coresPerComplex, True, mySystem.platform.coreList[0]):
             print("False")
 
     print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, scheme=Constants.THREAD_LEVEL_ISOLATION,
