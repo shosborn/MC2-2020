@@ -15,3 +15,7 @@ def sample_choice(choices: Tuple[T, ...]) -> T :
 
 def sample_normal_dist(mean: float, std: float) -> float :
     return numpy.random.normal(mean, std)
+
+def sample_bernoulli(weight: float) -> bool:
+    assert(0 <= weight <= 1)
+    return random.random() < weight

@@ -18,7 +18,7 @@ class HardwarePlatform:
         # should have an error if this isn't an integer
         self.coresPerComplex = coresPerComplex
         self.totalComplexes = math.ceil(totalCores/coresPerComplex)
-        print(self.totalComplexes)
+        #print(self.totalComplexes)
         # variables describing cache
         #self.cacheSizeL2=cacheSizeL2
         self.perComplexL3=cacheSizeL3

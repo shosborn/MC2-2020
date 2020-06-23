@@ -93,7 +93,6 @@ class Constants:
     WAY_SIZE = 1
 
     # It's technically possible for a solo task to occupy all ways
-    #MAX_HALF_WAYS = 16
     MAX_HALF_WAYS = 32
 
     MIN_SAMPLES = 10
@@ -153,10 +152,11 @@ class Constants:
     
     # first element is for levels A and B (from ECRTS '20)
     # second is for Level C (from ECRTS '19, kind of)
+    # level C contains an extra 0 for type consistency
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-    'High':     {LEVEL_A: (.45, .12, 0.0), LEVEL_B: (.45, .12, 0.0), LEVEL_C: (1.1, .1)},
-    'Moderate': {LEVEL_A: (.45, .12, 0.2), LEVEL_B: (.45, .12, 0.2), LEVEL_C: (1.45, .1)},
-    'Low':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1)}
+        'High':     {LEVEL_A: (.45, .12, 0.0), LEVEL_B: (.45, .12, 0.0), LEVEL_C: (1.1, .1, 0)},
+        'Moderate': {LEVEL_A: (.45, .12, 0.2), LEVEL_B: (.45, .12, 0.2), LEVEL_C: (1.45, .1, 0)},
+        'Low':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1, 0)}
     }
 
     
