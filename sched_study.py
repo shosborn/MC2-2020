@@ -1,9 +1,13 @@
 from constants import Constants
 from taskSystem import taskSystem
+import distributions
 import numpy as np
 from numpy import random
 import itertools
 import argparse
+import scipy.stats
+import math
+from typing import Dict, Tuple
 
 def generateScenario():
     #goal: return a scenario corresponding to every possible combination
@@ -13,7 +17,8 @@ def generateScenario():
                  'taskUtilDist':Constants.TASK_UTIL.keys(),
                  'possCacheSensitivity':Constants.CACHE_SENSITIVITY.keys(),
                  'wssDist':Constants.WSS_DIST.keys(),
-                 'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys()
+                 'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys(),
+                 'critSensitivity':Constants.CRIT_SENSITIVITY.keys()
                  }
 
     
@@ -23,6 +28,17 @@ def generateScenario():
     for instance in itertools.product(*vals):
         yield dict(zip(keys, instance))
 
+
+
+def _get_util_caps_per_crit(scenario: Dict[str, str]) -> Dict[int,float]:
+    util_dist_per_crit = Constants.CRITICALITY_UTIL_DIST[scenario['critUtilDist']]
+    util_caps_per_crit = {}
+    for key in util_dist_per_crit.keys():
+        util_caps_per_crit[key] = distributions.sample_unif_distribution(util_dist_per_crit[key])
+    total_caps = sum([util_caps_per_crit[key] for key in util_caps_per_crit.keys()])
+    for key in util_caps_per_crit.keys():
+        util_caps_per_crit[key] /= total_caps
+    return util_caps_per_crit
 
 def generateTaskSystem(scenario, sysUtil):
     # for now loading task system from sample file
@@ -68,6 +84,30 @@ def generateTaskSystem(scenario, sysUtil):
 
     return mySystem
 
+def compute_z_value():
+    assert(0 <= Constants.CONF_LEVEL < 1)
+    return scipy.stats.norm.ppf(1 - (1 - Constants.CONF_LEVEL)/2)
+
+def normal_approx_error(mean: float, samples: int):
+    """
+    Determine if sufficient samples have been collected for statistical significance
+    :param mean:
+    :param samples:
+    :return: True if iterations should continue, otherwise False
+    """
+    assert(0 <= mean <= 1)
+    assert(samples >= 0)
+    assert(Constants.CONF_INTERVAL > 0)
+
+    if samples == 0:
+        return True
+
+    z = compute_z_value()
+    err = z*math.sqrt(mean*(1-mean)/samples)
+
+    return err > Constants.CONF_INTERVAL
+
+
 def schedStudySingleScenario(scenario,numCores,corePerComplex):
     # if running this takes too long, set startUtil to numCores/2
     startUtil = numCores / 2
@@ -77,9 +117,10 @@ def schedStudySingleScenario(scenario,numCores,corePerComplex):
         # assuming task sets are generated on the fly, otherwise read from csv file by loadSystem if pre-generated
         # assuming a TaskSystem object is returned
         numSamples = 0
-
-        #need to change it with some statsitical significance test?
-        while numSamples < Constants.MAX_SAMPLES:
+        sched_ratio = 0
+        #need to change it with some statistical significance test?
+        while Constants.MIN_SAMPLES < numSamples < Constants.MAX_SAMPLES\
+                and normal_approx_error(sched_ratio, numSamples):
             #taskSystem = generateTaskSystem(scenario['utilDist'], scenario['period'], scenario['taskUtil'], sysUtil)
             taskSystem = generateTaskSystem(scenario, sysUtil)
 
@@ -87,18 +128,18 @@ def schedStudySingleScenario(scenario,numCores,corePerComplex):
             # taskSystem.levelA.loadSystem(fileLevelA)
             taskSystem.levelA.setPairsList()
             taskSystem.levelA.assignToCores(alg=Constants.WORST_FIT, coreList=taskSystem.platform.coreList)
-            print(taskSystem.levelA.schedulabilityTest(coreList=taskSystem.platform.coreList,
-                                                       allCritLevels=taskSystem.levels))
+            #print(taskSystem.levelA.schedulabilityTest(coreList=taskSystem.platform.coreList,
+            #                                           allCritLevels=taskSystem.levels))
             # mySystem.printPairsByCore()
 
             # test level B
             # taskSystem.levelB.loadSystem(fileLevelB)
             taskSystem.levelB.setPairsList()
             taskSystem.levelB.assignToCores(alg=Constants.WORST_FIT, coreList=taskSystem.platform.coreList)
-            print(taskSystem.levelB.schedulabilityTest(coreList=taskSystem.platform.coreList,
-                                                       allCritLevels=taskSystem.levels))
+            #print(taskSystem.levelB.schedulabilityTest(coreList=taskSystem.platform.coreList,
+            #                                           allCritLevels=taskSystem.levels))
 
-            taskSystem.printPairsByCore()
+            #taskSystem.printPairsByCore()
 
             # Test of level C
             # taskSystem.levelC.loadSystem(fileLevelC)
@@ -124,12 +165,13 @@ def schedStudySingleScenario(scenario,numCores,corePerComplex):
 
             taskSystem.levelC.assignTasksToClusters()
             taskSystem.printClusters()
-            print(taskSystem.levelC.schedulabilityTest(coreList=taskSystem.platform.coreList,
-                                                       allCritLevels=taskSystem.levels))
+            #print(taskSystem.levelC.schedulabilityTest(coreList=taskSystem.platform.coreList,
+            #                                           allCritLevels=taskSystem.levels))
 
             #todo: other schedulers to compare
 
             #todo: update counters, mean, std dev, etc.
+            numSamples += 1
 
         #todo: for this sysUtil write sched ratios to file
 
@@ -151,7 +193,7 @@ def main():
 
     # to-do: parallel execution of scenarios?
     for scenario in scenarios:
-        print(scenario)
+        #print(scenario)
         schedStudySingleScenario(scenario,numCores,corePerComplex)
 
     return
