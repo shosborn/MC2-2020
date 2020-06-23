@@ -30,7 +30,7 @@ class HardwarePlatform:
             self.complexList.append(CoreComplex(c,cacheSizeL3))
         
         for c in range (0, totalCores):
-            complexID = math.floor(c/self.totalComplexes)
+            complexID = math.floor(c/coresPerComplex)
             core = Core(c, complexID, assumedCache)
             self.coreList.append(core)
             self.complexList[complexID].coreList.append(core)
