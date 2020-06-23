@@ -78,10 +78,13 @@ def main():
     mySystem.printClusters()
 
     taskCount = 0
-    for critLevels in mySystem.levels:
+    for critLevels in mySystem.levels.values():
         taskCount += len(critLevels.tasksThisLevel)
     overhead = Overheads()
     overhead.loadOverheadData('oheads')
+    taskCount = len(mySystem.levelA.tasksThisLevel) + len(mySystem.levelB.tasksThisLevel) + len(
+        mySystem.levelC.tasksThisLevel)
+    overhead.populateOverheadValue(taskCount=taskCount, allCriticalityLevels=mySystem.levels)
 
     '''print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, scheme=Constants.THREAD_LEVEL_ISOLATION,
                               dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))
@@ -94,9 +97,10 @@ def main():
     for complex in mySystem.platform.complexList:
         if not solver.threadWiseAllocation(mySystem, 8, overhead, complex, coresPerComplex, True, mySystem.platform.coreList[0]):
             print("False")
+            return
 
-    print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, scheme=Constants.THREAD_LEVEL_ISOLATION,
-                              dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))
+    print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, dedicatedIRQ=True,
+                                        dedicatedIRQCore=mySystem.platform.coreList[0]))
 
 
 if __name__ == "__main__":

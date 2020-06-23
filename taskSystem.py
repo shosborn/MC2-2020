@@ -23,7 +23,6 @@ class taskSystem:
         self.levelC=CritLevelSystem(Constants.LEVEL_C, assumedCache)
 
         self.levels = {Constants.LEVEL_A: self.levelA, Constants.LEVEL_B: self.levelB, Constants.LEVEL_C: self.levelC}
-
         #print("Initial list of levels:")
         #print(self.levels)
 
