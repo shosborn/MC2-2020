@@ -1,6 +1,6 @@
 from gurobipy import *
 import numpy as np
-import pandas as pd
+#import pandas as pd
 
 from constants import Constants
 
@@ -136,7 +136,7 @@ class LLCAllocation:
                 #generate util considering level-C allocated 'thread1way' number of full ways.
                 inflatedUtil = overheads.accountOverheadCluster(taskLevel=Constants.LEVEL_C, allCritLevels=taskSystem.levels,
                                                                 cluster = cluster,
-                                                                cacheSize = numWays * 2, #no of half ways
+                                                                cacheSize = numWays, #no of half ways
                                                                 dedicatedIRQ=dedicatedIRQ,
                                                                 dedicatedIRQCore=dedicatedIRQCore)
                 util = sum(inflatedUtil[(task.ID, Constants.LEVEL_C)] for task in cluster.taskList)
@@ -460,15 +460,16 @@ class LLCAllocation:
 
 
     def threadWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None):
-        '''
+        """
 
+        :param dedicatedIRQCore:
+        :param dedicatedIRQ:
+        :param complex:
         :param corePerComplex: number of cores per complex
         :param maxWays:
         :param overheads:
-        :param cluster:
-        :param cluster2:
         :return:
-        '''
+        """
 
         self.setLevelAMinPeriods(taskSystem, complex)
 
@@ -509,7 +510,7 @@ class LLCAllocation:
                 #generate util considering level-C allocated 'thread1way' number of full ways.
                 inflatedUtil = overheads.accountOverheadCluster(taskLevel=Constants.LEVEL_C, allCritLevels=taskSystem.levels,
                                                                 cluster = cluster,
-                                                                cacheSize = numWays * 2, #no of half ways
+                                                                cacheSize = numWays,
                                                                 dedicatedIRQ=dedicatedIRQ,
                                                                 dedicatedIRQCore=dedicatedIRQCore)
                 util = sum(inflatedUtil[(task.ID, Constants.LEVEL_C)] for task in cluster.taskList)
@@ -538,6 +539,7 @@ class LLCAllocation:
 
 
         solver = Model()
+        solver.setParam('OutputFlag', False)
 
         # create variables
 
@@ -798,37 +800,9 @@ class LLCAllocation:
                 size2 = W[coreIDtoIndex[core.coreID]+numCores].x #size has num of ways
                 core.cacheAB = [size1, size2] #[halfways, halfways]
                 core.cacheC = W[-1].x * 2
-                print(core.coreID, core.cacheAB, core.cacheC)
-            print("result is: ", solver.objVal)
-            sum1 = sum(W[i].x for i in range(0, numCores)) + W[-1].x
-            sum2 = (sum(W[i].x for i in range(numCores, len(W))))
-            '''print("sum of ways: ", sum1)
-            print("sum of ways: ", sum2)
-            for i in range(0, len(W)):
-                print(W[i].x)'''
-            if sum1 != maxWays or sum2 != maxWays:
-                for cluster in complex.clusterList:
-                    for core in cluster.coresThisCluster:
-                        print("core id: ", core.coreID)
-                        thread1Cache = int(W[coreIDtoIndex[core.coreID]].x)
-                        thread2Cache = int(W[coreIDtoIndex[core.coreID]+numCores].x)
-                        print("level A-C: ")
-                        print(UData[(Constants.LEVEL_A, Constants.LEVEL_C)][coreIDtoIndex[core.coreID], thread1Cache, thread2Cache])
-                        print(UData[(Constants.LEVEL_A, Constants.LEVEL_C)][coreIDtoIndex[core.coreID], thread1Cache+1, thread2Cache])
-                        print(UData[(Constants.LEVEL_A, Constants.LEVEL_C)][coreIDtoIndex[core.coreID], thread1Cache, thread2Cache+1])
-                        print("level B-C: ")
-                        print(UData[(Constants.LEVEL_B, Constants.LEVEL_C)][
-                                  coreIDtoIndex[core.coreID], thread1Cache, thread2Cache])
-                        print(UData[(Constants.LEVEL_B, Constants.LEVEL_C)][
-                                  coreIDtoIndex[core.coreID], thread1Cache + 1, thread2Cache])
-                        print(UData[(Constants.LEVEL_B, Constants.LEVEL_C)][
-                                  coreIDtoIndex[core.coreID], thread1Cache, thread2Cache + 1])
-                    print("level C-C: ")
+                if Constants.DEBUG:
+                    print(core.coreID, core.cacheAB, core.cacheC)
 
-                    print(UData[(Constants.LEVEL_C, Constants.LEVEL_C)][
-                                  clusterIDtoIndex[clusterIDtoIndex[cluster.clusterID]], int(W[-1].x)])
-
-            assert sum1 == sum2 == maxWays
             '''print()
             for cluster in complex.clusterList:
                 print("clusterid: ",cluster.clusterID)
@@ -840,7 +814,7 @@ class LLCAllocation:
             '''
             return True
 
-        for cluster in complex.clusterList:
+        '''for cluster in complex.clusterList:
             util = {}
             util[(Constants.LEVEL_C, Constants.LEVEL_C)] = 0
             print("cluster: ", cluster.clusterID)
@@ -875,7 +849,7 @@ class LLCAllocation:
                 else:
                     util[(Constants.LEVEL_C,Constants.LEVEL_C)] += task.allUtil[(task.ID, Constants.LEVEL_C, cluster.coresThisCluster[0].cacheC)]
             print("cluster util: ", util[(Constants.LEVEL_A,Constants.LEVEL_C)]+util[(Constants.LEVEL_B,Constants.LEVEL_C)]+util[(Constants.LEVEL_C,Constants.LEVEL_C)])
-
+            '''
 
         return False
 
@@ -959,6 +933,7 @@ class LLCAllocation:
 
 
         solver = Model()
+        solver.setParam('OutputFlag', False)
 
         # create variables
 
@@ -1055,19 +1030,17 @@ class LLCAllocation:
         solver.optimize()
 
         if solver.status == GRB.OPTIMAL:
-            print("---- complex ", complex.complexID, "-----")
+            if Constants.DEBUG:
+                print("---- complex ", complex.complexID, "-----")
             for core in complex.coreList:
                 size = W[coreIDtoIndex[core.coreID]].x #size has num of ways
                 core.cacheAB = [size, size] #[halfways, halfways]
                 core.cacheC = W[-1].x * 2
-                print(core.coreID, core.cacheAB, core.cacheC)
-            print("result is: ", solver.objVal)
-            sum1 = sum(W[i].x for i in range(0, len(W)))
-            '''print("sum of ways: ", sum1)
-            for i in range(0, len(W)):
-                print(W[i].x)'''
-            assert sum1 == maxWays
-            print("-----------")
+
+                if Constants.DEBUG:
+                    print(core.coreID, core.cacheAB, core.cacheC)
+            if Constants.DEBUG:
+                print("-----------")
 
             '''for cluster in complex.clusterList:
                 print("clusterid: ",cluster.clusterID)

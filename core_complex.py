@@ -5,7 +5,7 @@ Created on Wed Apr 29 11:53:32 2020
 @author: simsh
 """
 
-from core import Core
+#from core import Core
 
 class CoreComplex:
     
