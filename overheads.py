@@ -363,6 +363,8 @@ class Overheads:
 
         critLevel = allCritLevels[taskLevel]
         tasksCritLevel = allCritLevels[taskLevel].tasksThisLevel
+        if len(tasksCritLevel) == 0:
+            return dict()
         startingTaskID = tasksCritLevel[0].ID
 
         #cache delay for all pairs at this level of this core
@@ -456,8 +458,8 @@ class Overheads:
                 inflatedUtils[(pair,costLevel)] = thisPairCost/thisPairPeriod
                 #sanity checks
                 assert(thisPairCost/thisPairPeriod > 0)
-                if Constants.DEBUG:
-                    print("pair: ",pair, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
+                #if Constants.DEBUG:
+                #    print("pair: ",pair, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
 
     def accountOverheadCluster(self, taskLevel, allCritLevels, cluster, cacheSize, additionalCluster=None, dedicatedIRQ=False, dedicatedIRQCore=None):
@@ -552,8 +554,8 @@ class Overheads:
 
                 #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
                 inflatedUtils[(task.ID,costLevel)] = thisPairCost/thisPairPeriod
-                if Constants.DEBUG:
-                    print("task: ",task.ID, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
+                #if Constants.DEBUG:
+                #    print("task: ",task.ID, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
 
 

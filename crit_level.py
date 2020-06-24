@@ -12,6 +12,7 @@ from task import Task, get_pair_util
 from constants import Constants
 from cluster import Cluster
 import distributions
+from gurobipy import *
 #import math
 #import random
 #from overheads import Overheads
@@ -24,9 +25,12 @@ _MAX_TASKS = 1000
 def _task_C_util(task: Task) -> float:
     return task.cost_per_cache_crit(Constants.MAX_HALF_WAYS, Constants.LEVEL_C)/task.period
 
-def _fitTask(task: Task, goal_util_C: float) -> None:
-    base_util_C = _task_C_util(task)
-    deflation_factor = goal_util_C / base_util_C
+def _task_A_util(task: Task) -> float:
+    return task.cost_per_cache_crit(Constants.MAX_HALF_WAYS, Constants.LEVEL_A)/task.period
+
+def _fitTask(task: Task, goal_util_A: float) -> None:
+    base_util_A = _task_A_util(task)
+    deflation_factor = goal_util_A / base_util_A
     # we shouldn't have gotten here unless our task was too heavy
     assert (deflation_factor < 1)
     task.deflate(deflation_factor)
@@ -98,7 +102,7 @@ class CritLevelSystem:
         #Lowering criticality level should not increase costs. Prevent this by reducing to how cost decreased
         #   with respect to the previous criticality level
         prev_scale = 1.0
-        for level in range(self.level, Constants.MAX_LEVEL):
+        for level in range(Constants.LEVEL_A, Constants.MAX_LEVEL):
             assert(0 < prev_scale <= 1.0)
             crit_sense_mean, crit_sense_std = crit_sense_dist_by_crit[level]
             tentative_scaling = max([0, distributions.sample_normal_dist(crit_sense_mean, crit_sense_std)])
@@ -169,7 +173,7 @@ class CritLevelSystem:
         # cache allocation possibilities in half-ways from 0-32
         
         #print('createTasks')
-        assert(targetUtil > 0)
+        assert(targetUtil >= 0)
         assert(startingID > 0)
 
         thisLevelUtil=0
@@ -180,13 +184,13 @@ class CritLevelSystem:
             assert(taskID - startingID < _MAX_TASKS)
             newTask = self._createTask(taskID, scenario)
             taskID += 1
-            newTask_C_util = _task_C_util(newTask)
-            if thisLevelUtil + newTask_C_util >= targetUtil:
+            newTask_A_util = _task_A_util(newTask)
+            if thisLevelUtil + newTask_A_util >= targetUtil:
                 _fitTask(newTask, targetUtil - thisLevelUtil)
                 self.tasksThisLevel.append(newTask)
                 break
             else:
-                thisLevelUtil += newTask_C_util
+                thisLevelUtil += newTask_A_util
                 self.tasksThisLevel.append(newTask)
 
         # done creating tasks
@@ -287,14 +291,16 @@ class CritLevelSystem:
         return
 
     #applies to crit levels A and B
-    def setPairsList(self):
+    def setPairsList(self) -> int:
+        if len(self.tasksThisLevel) == 0:
+            #no tasks, no pairs.
+            return GRB.OPTIMAL
         pairsILP = MakePairsILP(self)
-        results = pairsILP.makePairs()
-        self.thePairs = results[0]
-        # do we want to track runtime?
-        self.timeToPair = results[1]
+        self.thePairs, self.timeToPair, gStatus = pairsILP.makePairs()
+        #print('Time to pair = %d' % int(self.timeToPair))
         #print("Printing thePairs")
         #print(self.thePairs)
+        return gStatus
 
     #applies to crit levels A and B
     def assignToCores(self, alg, coreList, dedicatedIRQ: bool=False) -> bool:
@@ -310,7 +316,9 @@ class CritLevelSystem:
         # using 0-indexed cores
         #startingTaskID=self.tasksThisLevel[0].ID
         if len(self.thePairs) == 0:
-            raise NotImplementedError
+            #We want to test with empty crit levels now
+            return True
+            #raise NotImplementedError
 
         if Constants.VERBOSE:
             print('Assignment algorithm %d' % alg)

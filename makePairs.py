@@ -12,6 +12,8 @@ import pandas as pd
 import task
 from constants import Constants
 
+from typing import Tuple
+
 
 TIMEOUT=60
 SOLUTION_LIMIT=1000
@@ -39,7 +41,7 @@ class MakePairsILP:
         self.threadedUtil = None
 
     
-    def makePairs(self):
+    def makePairs(self) -> (Tuple[int,int,float], float, int):
         self.setSolverParams()
         #print("completed setSolverParams")
         self.schedVarsP=self.createSchedVarsAndSetObj()
@@ -80,7 +82,7 @@ class MakePairsILP:
                     thisPair=(j, i, float(pairUtil))
                 thePairs.append(thisPair)
 
-        return thePairs, self.solver.runtime
+        return thePairs, self.solver.runtime, self.solver.status
     
 
     def setSolverParams(self):

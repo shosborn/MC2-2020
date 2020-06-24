@@ -75,7 +75,7 @@ class LLCAllocation:
         return  UData, hData, HData
 
 
-    def threadWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None):
+    def threadWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None) -> int:
         """
 
         :param dedicatedIRQCore:
@@ -143,15 +143,15 @@ class LLCAllocation:
                         hData[clusterIDtoIndex[cluster.clusterID], numWays] = sortedLeveCInflatedUtil[i]
                     HData[clusterIDtoIndex[cluster.clusterID], numWays] += sortedLeveCInflatedUtil[i]
 
-        if Constants.DEBUG:
-            print(UData[(Constants.LEVEL_A, Constants.LEVEL_A)])
-            print(UData[(Constants.LEVEL_A, Constants.LEVEL_B)])
-            print(UData[(Constants.LEVEL_A, Constants.LEVEL_C)])
-            print(UData[(Constants.LEVEL_B, Constants.LEVEL_B)])
-            print(UData[(Constants.LEVEL_B, Constants.LEVEL_C)])
-            print(UData[(Constants.LEVEL_C, Constants.LEVEL_C)])
-            print(hData)
-            print((HData))
+        #if Constants.DEBUG:
+        #    print(UData[(Constants.LEVEL_A, Constants.LEVEL_A)])
+        #    print(UData[(Constants.LEVEL_A, Constants.LEVEL_B)])
+        #    print(UData[(Constants.LEVEL_A, Constants.LEVEL_C)])
+        #    print(UData[(Constants.LEVEL_B, Constants.LEVEL_B)])
+        #    print(UData[(Constants.LEVEL_B, Constants.LEVEL_C)])
+        #    print(UData[(Constants.LEVEL_C, Constants.LEVEL_C)])
+        #    print(hData)
+        #    print((HData))
 
 
         solver = Model()
@@ -315,29 +315,30 @@ class LLCAllocation:
 
         solver.optimize()
 
-        if solver.status == GRB.OPTIMAL:
-            for core in complex.coreList:
-                size1 = W[coreIDtoIndex[core.coreID]].x #size has num of ways
-                size2 = W[coreIDtoIndex[core.coreID]+numCores].x #size has num of ways
-                core.cacheAB = [size1, size2] #[halfways, halfways]
-                core.cacheC = W[-1].x * 2
-                if Constants.DEBUG:
-                    print(core.coreID, core.cacheAB, core.cacheC)
+        #if solver.status == GRB.OPTIMAL:
+        #    for core in complex.coreList:
+        #        size1 = W[coreIDtoIndex[core.coreID]].x #size has num of ways
+        #        size2 = W[coreIDtoIndex[core.coreID]+numCores].x #size has num of ways
+        #        core.cacheAB = [size1, size2] #[halfways, halfways]
+        #        core.cacheC = W[-1].x * 2
+        #        if Constants.DEBUG:
+        #            print(core.coreID, core.cacheAB, core.cacheC)
+        #
+        #    '''print()
+        #    for cluster in complex.clusterList:
+        #        print("clusterid: ",cluster.clusterID)
+        #        for core in cluster.coresThisCluster:
+        #            print("coreid: ", core.coreID)
+        #            print(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)].x)
+        #            print(U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)].x)
+        #        print(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)].x)
+        #    '''
+        #    return True
+        #
+        #return False
+        return solver.status
 
-            '''print()
-            for cluster in complex.clusterList:
-                print("clusterid: ",cluster.clusterID)
-                for core in cluster.coresThisCluster:
-                    print("coreid: ", core.coreID)
-                    print(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)].x)
-                    print(U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)].x)
-                print(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)].x)
-            '''
-            return True
-
-        return False
-
-    def coreWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None):
+    def coreWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None) -> int:
         '''
 
         :param corePerComplex: number of cores per complex
@@ -399,15 +400,15 @@ class LLCAllocation:
                         hData[clusterIDtoIndex[cluster.clusterID], numWays] = sortedLeveCInflatedUtil[i]
                     HData[clusterIDtoIndex[cluster.clusterID],numWays] += sortedLeveCInflatedUtil[i]
 
-        if Constants.DEBUG:
-            print(UData[(Constants.LEVEL_A,Constants.LEVEL_A)])
-            print(UData[(Constants.LEVEL_A,Constants.LEVEL_B)])
-            print(UData[(Constants.LEVEL_A,Constants.LEVEL_C)])
-            print(UData[(Constants.LEVEL_B,Constants.LEVEL_B)])
-            print(UData[(Constants.LEVEL_B,Constants.LEVEL_C)])
-            print(UData[(Constants.LEVEL_C,Constants.LEVEL_C)])
-            print(hData)
-            print((HData))
+        #if Constants.DEBUG:
+        #    print(UData[(Constants.LEVEL_A,Constants.LEVEL_A)])
+        #    print(UData[(Constants.LEVEL_A,Constants.LEVEL_B)])
+        #    print(UData[(Constants.LEVEL_A,Constants.LEVEL_C)])
+        #    print(UData[(Constants.LEVEL_B,Constants.LEVEL_B)])
+        #    print(UData[(Constants.LEVEL_B,Constants.LEVEL_C)])
+        #    print(UData[(Constants.LEVEL_C,Constants.LEVEL_C)])
+        #    print(hData)
+        #    print((HData))
 
 
         solver = Model()
@@ -508,27 +509,28 @@ class LLCAllocation:
         for i in range(0,len(W)):
             print(W[i].x)'''
 
-        if solver.status == GRB.OPTIMAL:
-            if Constants.DEBUG:
-                print("---- complex ", complex.complexID, "-----")
-            for core in complex.coreList:
-                size = W[coreIDtoIndex[core.coreID]].x #size has num of ways
-                core.cacheAB = [size, size] #[halfways, halfways]
-                core.cacheC = W[-1].x * 2
-                if Constants.DEBUG:
-                    print(core.coreID, core.cacheAB, core.cacheC)
-            if Constants.DEBUG:
-                print("-----------")
-
-            '''for cluster in complex.clusterList:
-                print("clusterid: ",cluster.clusterID)
-                for core in cluster.coresThisCluster:
-                    print("coreid: ", core.coreID)
-                    print(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)].x)
-                    print(U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)].x)
-                print(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)].x)'''
-            return True
-        return False
+        #if solver.status == GRB.OPTIMAL:
+        #    if Constants.DEBUG:
+        #        print("---- complex ", complex.complexID, "-----")
+        #    for core in complex.coreList:
+        #        size = W[coreIDtoIndex[core.coreID]].x #size has num of ways
+        #        core.cacheAB = [size, size] #[halfways, halfways]
+        #        core.cacheC = W[-1].x * 2
+        #        if Constants.DEBUG:
+        #            print(core.coreID, core.cacheAB, core.cacheC)
+        #    if Constants.DEBUG:
+        #        print("-----------")
+        #
+        #    '''for cluster in complex.clusterList:
+        #        print("clusterid: ",cluster.clusterID)
+        #        for core in cluster.coresThisCluster:
+        #            print("coreid: ", core.coreID)
+        #            print(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)].x)
+        #            print(U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)].x)
+        #        print(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)].x)'''
+        #    return True
+        #return False
+        return solver.status
 
 
 

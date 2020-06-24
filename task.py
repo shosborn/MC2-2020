@@ -55,12 +55,11 @@ class Task:
             # compute costs at our crit level
             baseCostWays = cost_func(half_ways)
             self._per_cache_crit_costs[half_ways] = {}
-            self._per_cache_crit_costs[half_ways][self.level] = baseCostWays
+            self._per_cache_crit_costs[half_ways][Constants.LEVEL_A] = baseCostWays
             # compute costs at lower crit levels
             for level in crit_scale_dict.keys():
-                assert(level >= self.level)
-                if level is self.level:
-                    #We've already generated this above
+                if level is Constants.LEVEL_A:
+                    #just computed this
                     continue
                 #Need to divide by scaling at our current level to get back to Level-A pessimism, then scale
                 #   back down to the lower level
@@ -95,8 +94,6 @@ class Task:
     def cost_per_cache_crit(self, cache_half_ways: int, level: int) -> float:
         #should not request cache more than available or negative
         assert(0 <= cache_half_ways <= Constants.MAX_HALF_WAYS)
-        #we should never request a task's cost for any level higher than its own
-        assert(level >= self.level)
         return self._per_cache_crit_costs[cache_half_ways][level]
 
 def get_pair_util(task1: Task, task2: Task, level: int, cache1: int, cache2: int) -> float:
