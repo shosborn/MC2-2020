@@ -6,8 +6,11 @@ Created on Thu Oct 17 08:53:41 2019
 """
 
 from gurobipy import *
-from random import random, gauss, uniform, choice
+#from random import random, gauss, uniform, choice
 import pandas as pd
+
+import task
+from constants import Constants
 
 
 TIMEOUT=60
@@ -26,11 +29,14 @@ class MakePairsILP:
     
     def __init__(self, curSystem):
         self.solver=Model()
+        self.solver.setParam("OutputFlag", False)
         #self.solver.getEnv().set(GRB_IntParam_OutputFlag, 0)
         self.curSystem=curSystem
         # print("Printing tasksThisLevel")
         # print(curSystem.tasksThisLevel)
         self.startingTaskID=curSystem.tasksThisLevel[0].ID
+        self.schedVarsP = None
+        self.threadedUtil = None
 
     
     def makePairs(self):
@@ -56,22 +62,26 @@ class MakePairsILP:
             if self.schedVarsP['schedVar'].iloc[k].x==1:
                 i=self.schedVarsP['taskID_1'].iloc[k]
                 j=self.schedVarsP['taskID_2'].iloc[k]
+                task_i = self.curSystem.tasksThisLevel[i - self.startingTaskID]
+                task_j = self.curSystem.tasksThisLevel[j - self.startingTaskID]
                 #pairPeriod=curSystem.tasksThisLevel[i].period
-                pairUtil=self.curSystem.tasksThisLevel[i-self.startingTaskID].allUtil[(j, 
-                                                               curSystem.level, 
-                                                               curSystem.assumedCache)]
-                thisPair=(i, j, float(pairUtil))
+                pairUtil= task.get_pair_util(task_i, task_j, curSystem.level,
+                                             curSystem.assumedCache//Constants.SIZE_OF_HALF_WAYS//2,
+                                             curSystem.assumedCache//Constants.SIZE_OF_HALF_WAYS//2
+                )
+                #self.curSystem.tasksThisLevel[i-self.startingTaskID].allUtil[(j,
+                #                                               curSystem.level,
+                #                                               curSystem.assumedCache)]
+
+                #Place the heavier task on the even thread
+                if task_i.baseCost > task_j.baseCost:
+                    thisPair=(i, j, float(pairUtil))
+                else:
+                    thisPair=(j, i, float(pairUtil))
                 thePairs.append(thisPair)
-        return (thePairs, self.solver.runtime)
+
+        return thePairs, self.solver.runtime
     
-
-        '''
-        print("task1, task2")
-        for k in range(len(self.schedVarsP.index)):
-            if self.schedVarsP['schedVar'].iloc[k].x==1:
-                print(self.schedVarsP['taskID_1'].iloc[k], self.schedVarsP['taskID_2'].iloc[k])
-
-        '''
 
     def setSolverParams(self):
         self.solver.setParam("TimeLimit", TIMEOUT)
@@ -81,8 +91,8 @@ class MakePairsILP:
 
 
     def createSchedVarsAndSetObj(self):
-        system=self.curSystem
-        tasksThisLevel=system.tasksThisLevel
+        taskSystem=self.curSystem
+        tasksThisLevel=taskSystem.tasksThisLevel
         
         schedVars={'taskID_1'      : [],
                         'taskID_2'      : [],
@@ -96,10 +106,10 @@ class MakePairsILP:
         # startingTaskID=1
         for i in range(0, len(tasksThisLevel)):
             for j in range(i, len(tasksThisLevel)):
-                
-                periodsMatch=(tasksThisLevel[i].period==tasksThisLevel[j].period)
+                task1 = tasksThisLevel[i]
+                task2 = tasksThisLevel[j]
+                periodsMatch=(task1.period==task2.period)
                 #this part of program only runs once, with an assumed cache level
-                myTask=tasksThisLevel[i]
                 '''
                 print()
                 print("Printing taskID and costs.")
@@ -108,9 +118,12 @@ class MakePairsILP:
                 print()
                 '''
                 #pairedCost=system.tasksThisLevel[i].allCosts[(j, system.level, system.assumedCache)]
-                pairedUtil=myTask.allUtil[(j+self.startingTaskID, system.level, system.assumedCache)]
-                
-                if periodsMatch and pairedUtil<=1:
+                pairedUtil = task.get_pair_util(task1, task2, taskSystem.level,
+                                                taskSystem.assumedCache//Constants.SIZE_OF_HALF_WAYS//2,
+                                                taskSystem.assumedCache//Constants.SIZE_OF_HALF_WAYS//2
+                )
+
+                if periodsMatch and pairedUtil<= Constants.MAX_THREADED_UTIL:
                 
                     #pairedUtil=pairedCost/tasksThisLevel[i].period
                     var=self.solver.addVar(lb=0, ub=1, vtype=GRB.BINARY)
@@ -141,7 +154,7 @@ class MakePairsILP:
                 expr += schedVarsThisTask['schedVar'].iloc[k]
             #for every i, paired with exactly one other (include itself as an option)
             self.solver.addConstr(lhs=expr, rhs=1, sense=GRB.EQUAL)
-
+'''
 def main():
     
     from taskSystem import taskSystem
@@ -158,10 +171,10 @@ def main():
     mySystem=taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache, fileLevelA)
     mySystem.levelA.loadSystem(fileLevelA)
     mySystem.levelA.setPairsList()
-             
+'''
                 
-if __name__== "__main__":
-     main()            
+#if __name__== "__main__":
+#     main()
         
 
  

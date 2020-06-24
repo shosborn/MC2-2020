@@ -1,6 +1,6 @@
 from gurobipy import *
 import numpy as np
-import pandas as pd
+#import pandas as pd
 
 from constants import Constants
 
@@ -76,15 +76,16 @@ class LLCAllocation:
 
 
     def threadWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None):
-        '''
+        """
 
+        :param dedicatedIRQCore:
+        :param dedicatedIRQ:
+        :param complex:
         :param corePerComplex: number of cores per complex
         :param maxWays:
         :param overheads:
-        :param cluster:
-        :param cluster2:
         :return:
-        '''
+        """
 
         self.setLevelAMinPeriods(taskSystem, complex)
 
@@ -125,7 +126,7 @@ class LLCAllocation:
                 #generate util considering level-C allocated 'thread1way' number of full ways.
                 inflatedUtil = overheads.accountOverheadCluster(taskLevel=Constants.LEVEL_C, allCritLevels=taskSystem.levels,
                                                                 cluster = cluster,
-                                                                cacheSize = numWays * 2, #no of half ways
+                                                                cacheSize = numWays,
                                                                 dedicatedIRQ=dedicatedIRQ,
                                                                 dedicatedIRQCore=dedicatedIRQCore)
                 util = sum(inflatedUtil[(task.ID, Constants.LEVEL_C)] for task in cluster.taskList)
@@ -154,6 +155,7 @@ class LLCAllocation:
 
 
         solver = Model()
+        solver.setParam('OutputFlag', False)
 
         # create variables
 
@@ -319,7 +321,8 @@ class LLCAllocation:
                 size2 = W[coreIDtoIndex[core.coreID]+numCores].x #size has num of ways
                 core.cacheAB = [size1, size2] #[halfways, halfways]
                 core.cacheC = W[-1].x * 2
-                print(core.coreID, core.cacheAB, core.cacheC)
+                if Constants.DEBUG:
+                    print(core.coreID, core.cacheAB, core.cacheC)
 
             '''print()
             for cluster in complex.clusterList:
@@ -408,6 +411,7 @@ class LLCAllocation:
 
 
         solver = Model()
+        solver.setParam('OutputFlag', False)
 
         # create variables
 
@@ -505,13 +509,16 @@ class LLCAllocation:
             print(W[i].x)'''
 
         if solver.status == GRB.OPTIMAL:
-            print("---- complex ", complex.complexID, "-----")
+            if Constants.DEBUG:
+                print("---- complex ", complex.complexID, "-----")
             for core in complex.coreList:
                 size = W[coreIDtoIndex[core.coreID]].x #size has num of ways
                 core.cacheAB = [size, size] #[halfways, halfways]
                 core.cacheC = W[-1].x * 2
-                print(core.coreID, core.cacheAB, core.cacheC)
-            print("-----------")
+                if Constants.DEBUG:
+                    print(core.coreID, core.cacheAB, core.cacheC)
+            if Constants.DEBUG:
+                print("-----------")
 
             '''for cluster in complex.clusterList:
                 print("clusterid: ",cluster.clusterID)

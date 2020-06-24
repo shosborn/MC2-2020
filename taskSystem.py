@@ -26,6 +26,7 @@ class taskSystem:
         #print("Initial list of levels:")
         #print(self.levels)
 
+    #broken, not compatible with asymmetric cache
     def printPairsByCore(self):
         coreList=self.platform.coreList
         for c in coreList:
@@ -49,12 +50,12 @@ class taskSystem:
                     task1=p[0]
                     task2=p[1]
                     period=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].period
-                    util=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].allUtil[(task2, thisLevel, c.assignedCache)]
+                    util=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].allUtil_AB[(task2, thisLevel, c.assignedCache)]
                     cost=util * period
                     print(task1, task2)
                     print("This level: ", cost, period, util)
                     for lowerLevel in range (thisLevel+1, Constants.LEVEL_C+1):
-                        lowerUtil=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].allUtil[(task2, lowerLevel, c.assignedCache)]
+                        lowerUtil=self.levels[thisLevel].tasksThisLevel[task1-startingTaskID].allUtil_AB[(task2, lowerLevel, c.assignedCache)]
                         print("Next level down: ", lowerUtil)
             print()
 

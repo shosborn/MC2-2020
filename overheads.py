@@ -1,9 +1,9 @@
-from csv import DictReader
+#from csv import DictReader
 from collections import defaultdict
 from constants import Constants
 import pandas as pd
-import math
-from task import Task
+#import math
+from task import get_pair_util
 
 
 class Overheads:
@@ -24,11 +24,11 @@ class Overheads:
         self.cpmdInflationLevelAB = {}
 
     def loadOverheadData(self,dirName):
-        '''
+        """
         Load overhead data to self.overheadData after making the data monotonic
         :param dirName: directory where overhead data are stored
         :return:
-        '''
+        """
         critMap = {'A':Constants.LEVEL_A, 'B': Constants.LEVEL_B, 'C':Constants.LEVEL_C}
         overheadData = defaultdict()
         for critLevelKey  in critMap:
@@ -46,7 +46,7 @@ class Overheads:
         self.overheadData = overheadData
 
     def montonicInterpolation(self,taskCount,costLevel,overhead):
-        '''
+        """
         interpolate overhead value of an overhead type for arbitrary task count from overhead data by piecewise linear interpolation
         if task count is greater than the max task count in overhead data, then the value for max task count
         is returned, i.e., max overhead value in the data
@@ -54,7 +54,7 @@ class Overheads:
         :param costLevel: execution criticality level for overhead data
         :param overhead: overhead type, column header of csv file
         :return: interpolated value
-        '''
+        """
 
         numTasks = list(self.overheadData[costLevel].index)
         overheadData = self.overheadData[costLevel][overhead]
@@ -85,7 +85,7 @@ class Overheads:
 
 
     def linearInterpolation(self,taskCount,costLevel,overhead):
-        '''
+        """
         interpolate overhead value of an overhead type for arbitrary task count from overhead data by piecewise linear interpolation
         if task count is greater than the max task count in overhead data,
         then the value is linearly interplated using median task count and max task count
@@ -93,7 +93,7 @@ class Overheads:
         :param costLevel: execution criticality level for overhead data
         :param overhead: overhead type, column header of csv file
         :return: interpolated value
-        '''
+        """
 
         numTasks = list(self.overheadData[costLevel].index)
         overheadData = self.overheadData[costLevel][overhead]
@@ -125,13 +125,13 @@ class Overheads:
                    (taskCount - overheadData.iloc[mid])
 
     def getOverheadValue(self,taskCount,costLevel,overhead):
-        '''
+        """
         get overhead value by taskcount.
         :param taskCount: number of tasks
         :param costLevel: execution criticality level for overhead data
         :param overhead: overhead type for which value is derived
         :return:
-        '''
+        """
         if overhead == 'CPMD': #cache related preemption and migration delay
             raise NotImplementedError
         # for any taskcount > max # of tasks in overhead data, maxmimum observed overhead value is used (maybe data need to be observed)
@@ -146,7 +146,6 @@ class Overheads:
         (Delay for preemption of a level-B task by a level-A task is accounted by CPMDInflationLevelAB)
         This is used when MC^2 use budgeted implementation for level-A tasks
         If PET for all job-slices of level-A can be predetermined, then 0 CPMD cost for level-A can be used.
-        :param pairs: pairs of criticality level-'taskLevel' assigned to a core/ core-complex
         :param tasks: all tasks at criticality level-'taskLevel'
         :param core: considered core
         :param cacheSize: cachesize allocated to the pairs at 'taskLevel' of a core (for level-B) or core-complex (for level-C)
@@ -212,14 +211,14 @@ class Overheads:
         return cpmd
 
     def getCPMDLevelC(self,clusterTasks,cacheSize):
-        '''
+        """
         calculate preemption-centric cache related preemption and migration delay for a cluster.
         applies for preemption of level-C tasks by level-C tasks
         :param clusterTasks: tasks of the cluster for which
         :param costLevel: criticality level of execution
         :param cacheSize: cachesize allocated (in half ways)
         :return: A pair of (taskpair,cpmdCost)
-        '''
+        """
 
         if len(clusterTasks) <= 1:
             #no cpmd in same level if 0 or 1 tasks per core/core-complex
@@ -235,7 +234,7 @@ class Overheads:
         return cpmd
 
     def CPMDInflationLevelAB(self,core,allCriticalityLevels,cacheSize,dedicatedIRQ=False,dedicatedIRQCore=False):
-        '''
+        """
         extra utilization term for a core at level-B,-C analysis due to level-A tasks preempting level-B tasks and affect their cache affinity
         :param tasks: all tasks at level-B
         :param costLevel: level of execution to be considered
@@ -243,7 +242,7 @@ class Overheads:
         :param dedicatedIRQ: is dedicated interrupt or not
         :param dedicatedIRQCore: if dedicated interrupts then the core handling interrupts
         :return: utilization term need to be added
-        '''
+        """
         levelBPairs = core.pairsOnCore[Constants.LEVEL_B]
         levelAPairs = core.pairsOnCore[Constants.LEVEL_A]
         #no level-B task in this core
@@ -348,7 +347,7 @@ class Overheads:
         self.populateIRQCosts(allCriticalityLevels)
 
     def accountOverheadCore(self, taskLevel, allCritLevels, core, cacheSize, dedicatedIRQ=False, dedicatedIRQCore=None):
-        '''
+        """
         Account for overhead of level-A or -B tasks of a core
         :param taskLevel: taskss' criticality level
         :param allCritLevels: dictionary of all criticality levels
@@ -358,10 +357,11 @@ class Overheads:
         :param dedicatedIRQ whether dedicated interrupt handling or not
         :param dedicatedIRQCore which core is handling interrupt in case of dedicated interrupt handling
         :return: A dictionary of pair -> util after accounting overheads
-        '''
+        """
         #store inflated pairs. Not altering original tasks parameters. They may be needed to compare with other schedulers.
         inflatedUtils = defaultdict()
 
+        critLevel = allCritLevels[taskLevel]
         tasksCritLevel = allCritLevels[taskLevel].tasksThisLevel
         startingTaskID = tasksCritLevel[0].ID
 
@@ -403,13 +403,25 @@ class Overheads:
                 if pair[0] != pair[1]:
                     #cost is currently modeled based on total cache for the pair, not how they are divided
                     #this is ok for core-level-isolation, but what about thread-level-isolation? 2+2 vs 3+1?
-                    thisPairUtil = tasksCritLevel[pair[0]-startingTaskID].allUtil[(pair[1], costLevel,  cacheSize[0]+cacheSize[1])]
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+                    #tasksCritLevel[pair[0]-startingTaskID]._allUtil[(pair[1], costLevel, cacheSize[0] + cacheSize[1])]
                 #solo task
                 else:
-                    '''thisPairUtil = tasksCritLevel[pair[0] - startingTaskID].allUtil[(pair[1], costLevel,
-                                         cacheSize[0] + cacheSize[1])] if scheme==Constants.CORE_LEVEL_ISOLATION else tasksCritLevel[
-                                                    pair[0] - startingTaskID].allUtil[(pair[1], costLevel, min(cacheSize)*2)]'''
-                    thisPairUtil = tasksCritLevel[pair[0] - startingTaskID].allUtil[(pair[1], costLevel, min(cacheSize)*2)]
+                    #We only get the min of our two half way sets here, but get_pair_util will sort this out for us
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+                    #tasksCritLevel[pair[0] - startingTaskID]._allUtil[(pair[1], costLevel, min(cacheSize) * 2)]
                 thisPairCost = thisPairUtil * thisPairPeriod
                 origCost = thisPairCost
 
@@ -442,12 +454,14 @@ class Overheads:
 
                 #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
                 inflatedUtils[(pair,costLevel)] = thisPairCost/thisPairPeriod
+                #sanity checks
+                assert(thisPairCost/thisPairPeriod > 0)
                 if Constants.DEBUG:
                     print("pair: ",pair, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
 
     def accountOverheadCluster(self, taskLevel, allCritLevels, cluster, cacheSize, additionalCluster=None, dedicatedIRQ=False, dedicatedIRQCore=None):
-        '''
+        """
         Account for overhead for level-C tasks of a cluster
         :param taskLevel: tasks' level (level-C)
         :param allCritLevels: dictionary of all criticality levels
@@ -457,12 +471,13 @@ class Overheads:
         :param dedicatedIRQ whether dedicated interrupt handling or not
         :param dedicatedIRQCore which core is handling interrupt in case of dedicated interrupt handling
         :return: A dictionary of (taskID,execLevel) -> util after accounting overheads
-        '''
+        """
         #store inflated pairs. Not altering original tasks parameters. They may be needed to compare with other schedulers.
         inflatedUtils = defaultdict()
 
-        tasksCritLevel = allCritLevels[taskLevel].tasksThisLevel
-        startingTaskID = tasksCritLevel[0].ID
+        #critLevel = allCritLevels[taskLevel]
+        #tasksCritLevel = allCritLevels[taskLevel].tasksThisLevel
+        #startingTaskID = tasksCritLevel[0].ID
 
         if additionalCluster:
             tasks = []
@@ -501,10 +516,15 @@ class Overheads:
                     thisPairUtil = 0
                     for otherTask in cluster.taskList:
                         if task != otherTask:
-                            thisPairUtil = max(thisPairUtil, task.allUtil[(otherTask.ID,Constants.LEVEL_C,cacheSize)])
+                            thisPairUtil = max([
+                                thisPairUtil,
+                                get_pair_util(task, otherTask, Constants.LEVEL_C, cacheSize, cacheSize)
+                            ])
+                            #task._allUtil[(otherTask.ID, Constants.LEVEL_C, cacheSize)])
                     thisPairCost = thisPairUtil * thisPairPeriod
                 else:
-                    thisPairCost = task.allUtil[(task.ID,Constants.LEVEL_C,cacheSize)] * thisPairPeriod
+                    thisPairCost = get_pair_util(task, task, Constants.LEVEL_C, cacheSize, cacheSize)*task.period
+                    #task._allUtil[(task.ID, Constants.LEVEL_C, cacheSize)] * thisPairPeriod
                 origCost = thisPairCost
 
                 thisPairCost += cpmd[costLevel]
@@ -538,14 +558,14 @@ class Overheads:
 
 
     def accountForOverhead(self, taskLevel, allCritLevels, coreList, clusterList, scheme, dedicatedIRQ=False, dedicatedIRQCore=None):
-        '''
+        """
         Account for overhead, for whole task system. (will not use)
         :param costLevel: execution criticality level
         :param taskCount: Number of tasks
         :param coreList: list of cores
         :param allCriticalityLevels: dictionary of all criticality levels
         :return: A dictionary of pair -> util after accounting overheads
-        '''
+        """
         #store inflated pairs. Not altering original tasks parameters. They may be needed to compare with other schedulers.
         inflatedUtils = defaultdict()
 

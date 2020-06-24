@@ -73,12 +73,12 @@ class Cluster:
             self.usedCapacity = self.usedCapacity + newTask.currentThreadedUtil
         self.taskList.append(newTask)
 
+    '''
+    Makes the following assumptions:
+    --w/n each criticality level, all cores have the same cache allocation
+    --per Micaiah, don't need individual utilizations for A and B tasks; need totals only
+    '''
     def schedTestNoOverheads(self):
-        '''
-        Makes the following assumptions:
-        --w/n each criticality level, all cores have the same cache allocation
-        --per Micaiah, don't need individual utilizations for A and B tasks; need totals only
-        '''
         if not self.threaded:
             m=len(self.coresThisCluster)
             # test for total util

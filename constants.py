@@ -79,7 +79,7 @@ class Constants:
 
     CORES_PER_COMPLEX = 4
     NUM_CORES = 4
-    UTIL_STEP_SIZE = 1
+    UTIL_STEP_SIZE = 0.5
 
     CACHE_LEVELS = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
                     10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 
@@ -88,7 +88,9 @@ class Constants:
 
     # use for debugging
     # CACHE_LEVELS=(0, 1, 2)
-    
+    #in MB
+    CACHE_SIZE_L3 = 16
+
     # size of one L3 cache way, in MB
     WAY_SIZE = 1
 
@@ -96,9 +98,14 @@ class Constants:
     MAX_HALF_WAYS = 32
 
     MIN_SAMPLES = 10
-    MAX_SAMPLES = 50 #set at 2 for intial testing
+    MAX_SAMPLES = 50 #set at 2 for initial testing
     CONF_INTERVAL = 0.05
     CONF_LEVEL = 0.95
+
+    #Schemes
+    NO_THREAD = 0
+    THREAD_COURSE = 1
+    THREAD_FINE = 2
 
     LIGHT_RATIO = (0.1, 0.3)
     LOW_MODERATE_RATIO = (0.2, 0.3)
@@ -118,32 +125,32 @@ class Constants:
 
     # from RTSS '15
     CRITICALITY_UTIL_DIST: Dict[str, Dict[int,Tuple[float,float]]] = {
-       'C-Heavy':      {LEVEL_A: LIGHT_RATIO, LEVEL_B: LIGHT_RATIO, LEVEL_C: HEAVY_RATIO},
-       'B-Heavy':      {LEVEL_A: LOW_MODERATE_RATIO, LEVEL_B: HEAVY_RATIO, LEVEL_C: LIGHT_RATIO},
+       #'C-Heavy':      {LEVEL_A: LIGHT_RATIO, LEVEL_B: LIGHT_RATIO, LEVEL_C: HEAVY_RATIO},
+       #'B-Heavy':      {LEVEL_A: LOW_MODERATE_RATIO, LEVEL_B: HEAVY_RATIO, LEVEL_C: LIGHT_RATIO},
        'AB-Moderate':  {LEVEL_A: HIGH_MODERATE_RATIO, LEVEL_B: HIGH_MODERATE_RATIO, LEVEL_C: LIGHT_RATIO},
     }
 
 
     # from RTSS '15
-    PERIOD_DIST: Dict[str, Dict[int,Tuple[float,float]]] = { #in ms (need to be in us?)
-        'Short':        {LEVEL_A: (3, 6), LEVEL_B: (6, 12), LEVEL_C: (3, 33)},
-        'Contrasting':  {LEVEL_A: (3, 6), LEVEL_B: (96, 192), LEVEL_C: (10, 100)},
+    PERIOD_DIST: Dict[str, Dict[int,Tuple[int,int]]] = { #in ms, converted to us in Task generation
+        #'Short':        {LEVEL_A: (3, 6), LEVEL_B: (6, 12), LEVEL_C: (3, 33)},
+        #'Contrasting':  {LEVEL_A: (3, 6), LEVEL_B: (96, 192), LEVEL_C: (10, 100)},
         'Long':         {LEVEL_A: (48, 96), LEVEL_B: (96, 192), LEVEL_C: (50, 500)}
     }
 
     # from RTSS '15
     TASK_UTIL: Dict[str, Dict[int,Tuple[float,float]]] = {
-        'Light_Util':    {LEVEL_A: (0.001, 0.03), LEVEL_B: (0.001, 0.05), LEVEL_C: (0.001, 0.1)},
+        #'Light_Util':    {LEVEL_A: (0.001, 0.03), LEVEL_B: (0.001, 0.05), LEVEL_C: (0.001, 0.1)},
         'Moderate_Util': {LEVEL_A: (0.02, 0.1), LEVEL_B: (0.05, 0.2), LEVEL_C: (0.1, 0.4)},
-        'Heavy_Util':    {LEVEL_A: (0.1, 0.2), LEVEL_B: (0.2, 0.4), LEVEL_C: (0.4, 0.6)}
+        #'Heavy_Util':    {LEVEL_A: (0.1, 0.2), LEVEL_B: (0.2, 0.4), LEVEL_C: (0.4, 0.6)}
     }
     
-    # Joshua's Numbers
+    # Informed by benchmarks
     CACHE_SENSITIVITY: Dict[str, Tuple[float,float,float]] = {
-         'Default_Sensitivity':   (2, 8, 16)
+         'Default_Sensitivity':   (1.16, 2.95, 15.68)
     }
     
-    # Joshua's suggestion--units are MB
+    # units are MB
     # Normal distribution
     # truncate negative values
     WSS_DIST: Dict[str, Tuple[float,float]] = {
@@ -155,7 +162,7 @@ class Constants:
     # level C contains an extra 0 for type consistency
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
         'High':     {LEVEL_A: (.45, .12, 0.0), LEVEL_B: (.45, .12, 0.0), LEVEL_C: (1.1, .1, 0)},
-        'Moderate': {LEVEL_A: (.45, .12, 0.2), LEVEL_B: (.45, .12, 0.2), LEVEL_C: (1.45, .1, 0)},
+        #'Moderate': {LEVEL_A: (.45, .12, 0.2), LEVEL_B: (.45, .12, 0.2), LEVEL_C: (1.45, .1, 0)},
         'Low':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1, 0)}
     }
 
@@ -179,4 +186,6 @@ class Constants:
 
 
     DEBUG = False
+    VERBOSE = False
+    TIMEKEEPING = False
 

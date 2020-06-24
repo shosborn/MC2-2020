@@ -5,7 +5,7 @@ Created on Wed Apr 29 11:56:53 2020
 @author: simsh
 """
 import math
-import numpy as np
+#import numpy as np
 from core import Core
 from core_complex import CoreComplex
 
@@ -37,9 +37,9 @@ class HardwarePlatform:
 
 def main():
     h = HardwarePlatform(16,4,16,2)
-    for complex in h.complexList:
-        print("complex id: ", complex.complexID)
-        for core in complex.coreList:
+    for comp in h.complexList:
+        print("complex id: ", comp.complexID)
+        for core in comp.coreList:
             print(core.coreID, end=" ")
         print()
 

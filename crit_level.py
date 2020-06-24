@@ -8,14 +8,14 @@ Created on Wed Apr 29 10:31:05 2020
 # from taskCluster import TaskCluster
 # from taskCluster import TaskCluster
 from makePairs import MakePairsILP
-from task import Task
+from task import Task, get_pair_util
 from constants import Constants
 from cluster import Cluster
 import distributions
-import math
-import random
-from overheads import Overheads
-from numpy import random
+#import math
+#import random
+#from overheads import Overheads
+#from numpy import random
 from typing import Dict, Tuple
 
 #Use this to detect if we accidentally created an infinite loop
@@ -24,7 +24,7 @@ _MAX_TASKS = 1000
 def _task_C_util(task: Task) -> float:
     return task.cost_per_cache_crit(Constants.MAX_HALF_WAYS, Constants.LEVEL_C)/task.period
 
-def _fitTask(task: Task, goal_util_C: float):
+def _fitTask(task: Task, goal_util_C: float) -> None:
     base_util_C = _task_C_util(task)
     deflation_factor = goal_util_C / base_util_C
     # we shouldn't have gotten here unless our task was too heavy
@@ -32,8 +32,6 @@ def _fitTask(task: Task, goal_util_C: float):
     task.deflate(deflation_factor)
 
 class CritLevelSystem:
-
-
     def __init__(self, level: int, assumedCache):
         self.level: int = level
         #self.firstInSystem = numHigherCritTasks + 1
@@ -52,7 +50,13 @@ class CritLevelSystem:
             self.soloCores=[]
             self.soloClusters=[]
             self.threadedClusters=[]
+            self.sharedSoloCluster = None
+            self.sharedThreadedCluster = None
 
+    def getTask(self, task_id: int) -> Task:
+        task_idx = task_id - self.tasksThisLevel[0].ID
+        assert(0 <= task_idx < len(self.tasksThisLevel))
+        return self.tasksThisLevel[task_idx]
 
     def _createTask(self, task_id: int, scenario: Dict[str, str]) -> Task:
         """
@@ -91,76 +95,66 @@ class CritLevelSystem:
         #choose how our cost scales at lower levels
         crit_sense_dist_by_crit = Constants.CRIT_SENSITIVITY[scenario['critSensitivity']]
         crit_scale_dict = {}
+        #Lowering criticality level should not increase costs. Prevent this by reducing to how cost decreased
+        #   with respect to the previous criticality level
         prev_scale = 1.0
         for level in range(self.level, Constants.MAX_LEVEL):
             assert(0 < prev_scale <= 1.0)
             crit_sense_mean, crit_sense_std = crit_sense_dist_by_crit[level]
             tentative_scaling = max([0, distributions.sample_normal_dist(crit_sense_mean, crit_sense_std)])
-            crit_scale_dict[level] = max([prev_scale, tentative_scaling])
+            crit_scale_dict[level] = min([prev_scale, tentative_scaling])
             prev_scale = min([prev_scale, tentative_scaling])
 
         #return a basic task. Still need to produce any threading related data
         return Task(task_id, self.level, baseCost, period, relDeadline, wss, cache_sense, crit_scale_dict)
 
     def _generate_smt_costs_AB(self, smt_friendliness_mean: float,
-                               smt_friendliness_std: float, smt_unfriendliness_chance: float):
+                               smt_friendliness_std: float, smt_unfriendliness_chance: float) -> None:
         for task in self.tasksThisLevel:
             for sibling in self.tasksThisLevel:
-                task.allUtil[sibling.ID] = {}
-                if task is not sibling:
-                    if distributions.sample_bernoulli(smt_unfriendliness_chance):
-                        smt_friendliness = 10
-                    else:
-                        smt_friendliness = distributions.sample_normal_dist(smt_friendliness_mean,smt_friendliness_std)
-                        smt_friendliness = max([smt_friendliness, 0.01])
-                    for half_ways in range(Constants.MAX_HALF_WAYS+1):
-                        task.allUtil[sibling.ID][half_ways] = {}
-                        for level in range(self.level, Constants.MAX_LEVEL):
-                            task.allUtil[sibling.ID][half_ways][level] = {}
-                            for half_ways_sibling in range(Constants.MAX_HALF_WAYS - half_ways):
-                                task.allUtil[sibling.ID][half_ways][level][half_ways_sibling] = \
-                                    task.cost_per_cache_crit(half_ways, level) + \
-                                    smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
+                if task is sibling:
+                    #SMT irrelevant here
+                    continue
+                task.allUtil_AB[sibling.ID] = {}
+                if distributions.sample_bernoulli(smt_unfriendliness_chance):
+                    smt_friendliness = 10 #punish for SMT
                 else:
-                    for half_ways in range(Constants.MAX_HALF_WAYS//2+1):
-                        task.allUtil[sibling.ID][half_ways] = {}
-                        for level in range(self.level, Constants.MAX_LEVEL):
-                            task.allUtil[sibling.ID][half_ways][level] = {}
-                            task.allUtil[sibling.ID][half_ways][level][half_ways] = \
-                                task.cost_per_cache_crit(2*half_ways, level)
+                    smt_friendliness = distributions.sample_normal_dist(smt_friendliness_mean,smt_friendliness_std)
+                    smt_friendliness = max([smt_friendliness, 0.01])
+                #For threaded tasks, do to color separation, I am only entitled to at most half the half-ways
+                for half_ways in range(Constants.MAX_HALF_WAYS//2+1):
+                    task.allUtil_AB[sibling.ID][half_ways] = {}
+                    for level in range(self.level, Constants.MAX_LEVEL):
+                        task.allUtil_AB[sibling.ID][half_ways][level] = {}
+                        #The sibling task is limited to half the half-ways for the same reason
+                        for half_ways_sibling in range(Constants.MAX_HALF_WAYS//2+1):
+                            #Use the individual costs and SMT friendliness to compute an SMT cost
+                            task.allUtil_AB[sibling.ID][half_ways][level][half_ways_sibling] = \
+                                task.cost_per_cache_crit(half_ways, level) + \
+                                smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
+                            task.allUtil_AB[sibling.ID][half_ways][level][half_ways_sibling] /= task.period
         return
 
-    def _generate_smt_costs_C(self, smt_friendliness_mean: float, smt_friendliness_std: float):
+    def _generate_smt_costs_C(self, smt_friendliness_mean: float, smt_friendliness_std: float) -> None:
         for task in self.tasksThisLevel:
             smt_friendliness = distributions.sample_normal_dist(smt_friendliness_mean, smt_friendliness_std)
+            #SMT should not decrease costs
             smt_friendliness = max([smt_friendliness, 1.0])
-            for sibling in self.tasksThisLevel:
-                task.allUtil[sibling.ID] = {}
-                if task is not sibling:
-                    for half_ways in range(Constants.MAX_HALF_WAYS+1):
-                        task.allUtil[sibling.ID][half_ways] = {}
-                        for level in range(self.level, Constants.MAX_LEVEL):
-                            task.allUtil[sibling.ID][half_ways][level] = {}
-                            for half_ways_sibling in range(Constants.MAX_HALF_WAYS+1):
-                                task.allUtil[sibling.ID][half_ways][level][half_ways_sibling] = \
-                                    task.cost_per_cache_crit(half_ways, level)*smt_friendliness
-                else:
-                    for half_ways in range(Constants.MAX_HALF_WAYS//2+1):
-                        task.allUtil[sibling.ID][half_ways] = {}
-                        for level in range(self.level, Constants.MAX_LEVEL):
-                            task.allUtil[sibling.ID][half_ways][level] = {}
-                            task.allUtil[sibling.ID][half_ways][level][half_ways] = \
-                                task.cost_per_cache_crit(2*half_ways, level)
+            for half_ways in range(Constants.MAX_HALF_WAYS+1):
+                task.allUtil_C[half_ways] = {}
+                for level in range(self.level, Constants.MAX_LEVEL):
+                    task.allUtil_C[half_ways][level] = \
+                        task.cost_per_cache_crit(half_ways, level)*smt_friendliness/task.period
         return
 
-    def _generate_smt_costs(self, smt_dist: Dict[int, Tuple[float,float,float]]):
+    def _generate_smt_costs(self, smt_dist: Dict[int, Tuple[float,float,float]]) -> None:
         if self.level is Constants.LEVEL_A:
             smt_mean, smt_std, smt_unfriendly = smt_dist[Constants.LEVEL_A]
             self._generate_smt_costs_AB(smt_mean, smt_std, smt_unfriendly)
         elif self.level is Constants.LEVEL_B:
             smt_mean, smt_std, smt_unfriendly = smt_dist[Constants.LEVEL_B]
             self._generate_smt_costs_AB(smt_mean, smt_std, smt_unfriendly)
-        else:
+        else: # only remaining level is C
             smt_mean, smt_std, _unused_smt = smt_dist[Constants.LEVEL_C]
             self._generate_smt_costs_C(smt_mean, smt_std)
         return
@@ -203,7 +197,8 @@ class CritLevelSystem:
 
         return taskID - startingID
                                 
-
+    #broken. Not compatible with asymmetric cache allocations to threads
+    """
     def loadSystem(self, filename):
         '''
         Create a set of tasks for the appropriate level by reading in csv file
@@ -254,8 +249,8 @@ class CritLevelSystem:
                         
                         cacheList = int(keyList[2])
                         thisUtil = float(arr[column])
-                        newTask.allUtil[(sibling, critLevelInt, cacheList)] = thisUtil
-                        newTask.allUtil[(sibling, critLevelInt, cacheList)] = thisUtil*random.uniform(0.3,0.7) #to test
+                        newTask._allUtil_AB[(sibling, critLevelInt, cacheList)] = thisUtil
+                        newTask._allUtil_AB[(sibling, critLevelInt, cacheList)] = thisUtil * random.uniform(0.3, 0.7) #to test
                     tasksThisLevel.append(newTask)
 
         startingCacheSize = 3
@@ -267,8 +262,29 @@ class CritLevelSystem:
             for otherTask in tasksThisLevel:
                 for cacheSize in range(startingCacheSize,endingCacheSize+1):
                     for level in range(self.level,Constants.LEVEL_C+1):
-                        task.allUtil[(otherTask.ID,level,cacheSize)] = \
-                            task.allUtil[(otherTask.ID,level,cacheSize-1)] * math.exp(-cacheSize*factor)
+                        task._allUtil_AB[(otherTask.ID, level, cacheSize)] = \
+                            task._allUtil_AB[(otherTask.ID, level, cacheSize - 1)] * math.exp(-cacheSize * factor)
+
+    """
+
+    def setAllSolo(self):
+        if self.level is Constants.LEVEL_A or self.level is Constants.LEVEL_B:
+            for task in self.tasksThisLevel:
+                self.thePairs.append((
+                    task.ID,
+                    task.ID,
+                    get_pair_util(task,task,self.level,
+                                  self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2,
+                                  self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2
+                    )
+                ))
+        else:
+            for task in self.tasksThisLevel:
+                task.currentSoloUtil = get_pair_util(task, task, self.level, self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2,
+                                                         self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2)
+                self.soloTasks.append(task)
+                self.totalSoloUtil += task.currentSoloUtil
+        return
 
     #applies to crit levels A and B
     def setPairsList(self):
@@ -277,23 +293,27 @@ class CritLevelSystem:
         self.thePairs = results[0]
         # do we want to track runtime?
         self.timeToPair = results[1]
-        print("Printing thePairs")
-        print(self.thePairs)
+        #print("Printing thePairs")
+        #print(self.thePairs)
 
     #applies to crit levels A and B
-    def assignToCores(self, alg, coreList):
-        '''
+    def assignToCores(self, alg, coreList, dedicatedIRQ: bool=False) -> bool:
+        """
         Assign tasks to cores, applicable to level-A and -B tasks
+        :param dedicatedIRQ: is core 0 a dedicatedIRQ core which we do not schedule work on
         :param alg: partitioning algorithm, unused
         :param coreList: list of cores
         :return:
-        '''
+        """
         # to-do: implement a second method for period-aware worst-fit
         # should this change each core's list of tasks?
         # using 0-indexed cores
-        startingTaskID=self.tasksThisLevel[0].ID
+        #startingTaskID=self.tasksThisLevel[0].ID
         if len(self.thePairs) == 0:
             raise NotImplementedError
+
+        if Constants.VERBOSE:
+            print('Assignment algorithm %d' % alg)
 
         thePairs = self.thePairs
 
@@ -303,12 +323,13 @@ class CritLevelSystem:
         for pair in sortedPairs:
             bestCoreSoFar = -1
             utilOnBest = Constants.ASSUMED_MAX_CAPACITY
-            task1=pair[0]
-            task2=pair[1]
-            pairUtil=self.tasksThisLevel[task1-startingTaskID].allUtil[(task2, self.level, self.assumedCache)]
+            task1=self.getTask(pair[0])
+            task2=self.getTask(pair[1])
+            pairUtil = pair[2] #self.tasksThisLevel[task1-startingTaskID]._allUtil[(task2, self.level, self.assumedCache)]
 
             #for c in coreList:
-            for c in range(len(coreList)):
+            #skip core 0 if it's the dedicated interrupt core
+            for c in range(1 if dedicatedIRQ else 0, len(coreList)):
                 newCoreUtil = coreList[c].utilOnCore[self.level] + pairUtil
                 if newCoreUtil <= Constants.ASSUMED_MAX_CAPACITY and newCoreUtil <= utilOnBest:
                     bestCoreSoFar = c
@@ -324,7 +345,13 @@ class CritLevelSystem:
                 coreList[bestCoreSoFar].pairsOnCore[self.level].append(pair)
                 #update lower levels utilizations upto level B on this core (can be done upto C, but may impact C's code), will be starting point for level B
                 for critLevel in range(self.level+1,Constants.LEVEL_B+1):
-                    coreList[bestCoreSoFar].utilOnCore[critLevel] += self.tasksThisLevel[task1-startingTaskID].allUtil[(task2, critLevel, self.assumedCache)]
+                    #coreList[bestCoreSoFar].utilOnCore[critLevel] += self.tasksThisLevel[task1-startingTaskID]._allUtil[(task2, critLevel, self.assumedCache)]
+                    #assume each thread gets half the whole L3 here
+                    coreList[bestCoreSoFar].utilOnCore[critLevel] += get_pair_util(
+                        task1, task2, critLevel,
+                        self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2,
+                        self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2
+                    )
         # returns only if all pairs could be placed on a core
         # return pairsByCore
         return True
@@ -332,29 +359,43 @@ class CritLevelSystem:
 
     #applies to crit level C
     def decideThreaded(self):
-        '''
+        """
         Decide which tasks should be threaded/ unthreaded.
         Recall from ECRTS '19 that the oblivious approach is not bad;
         Exact approach to partitioning doesn't make that much difference.
 
+        Because friendliness at C does not depend on the sibling task, it is sufficient to only check one other task
+
         In any cache, we need an assumed cache level to start.
-        '''
+        """
         firstTask=True
         for thisTask in self.tasksThisLevel:
-            thisTask.currentSoloUtil=thisTask.allUtil[(thisTask.ID, self.level, self.assumedCache)]
+            #Note the latter cache value is unused by this function
+            thisTask.currentSoloUtil=get_pair_util(thisTask,thisTask,self.level,
+                                                   self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2,self.assumedCache
+            )
             
             if firstTask:
-                otherTask=self.tasksThisLevel[1]
-                firstTask==False
+                if len(self.tasksThisLevel) >= 2:
+                    otherTask=self.tasksThisLevel[1]
+                    firstTask = False
+                else:
+                    self.soloTasks.append(thisTask)
+                    self.totalSoloUtil += thisTask.currentSoloUtil
+                    break
             else:
                 otherTask=self.tasksThisLevel[0]
             
-            print()
-            print("Printing level C task.")
-            print("taskID=", thisTask.ID)
-            print(thisTask.allUtil)
+            #print()
+            #print("Printing level C task.")
+            #print("taskID=", thisTask.ID)
+            #print(thisTask._allUtil)
             
-            threadedUtil=thisTask.allUtil[(otherTask.ID, self.level, self.assumedCache)]
+            threadedUtil= get_pair_util(thisTask, otherTask, self.level,
+                                        self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2,
+                                        self.assumedCache//Constants.SIZE_OF_HALF_WAYS//2
+            )
+            #thisTask._allUtil[(otherTask.ID, self.level, self.assumedCache)]
             '''
             threadedUtil=0
             for otherTask in self.tasksThisLevel:
@@ -371,10 +412,10 @@ class CritLevelSystem:
                 self.totalThreadedUtil = self.totalThreadedUtil + thisTask.currentThreadedUtil
 
     #applies to level C only
-    def divideCores(self, coreList, coresPerComplex):
+    def divideCores(self, coreList, coresPerComplex, dedicatedIRQ: bool = False) -> bool:
         #determine cores needed for solos
         soloCapacity=0
-        c = 0
+        c = 1 if dedicatedIRQ else 0
         while soloCapacity < self.totalSoloUtil:
             soloCapacity = soloCapacity + 1-coreList[c].utilOnCore[Constants.LEVEL_C]
             self.soloCores.append(coreList[c])
@@ -382,15 +423,15 @@ class CritLevelSystem:
             if c ==len(coreList):
                 #can't do all the solo tasks; return failure
                 return False
-        print("Prelim. solo cores:")
-        for  core in self.soloCores:
-            print(core.coreID, end=",")
-        print()
+        #print("Prelim. solo cores:")
+        #for  core in self.soloCores:
+        #    print(core.coreID, end=",")
+        #print()
 
         #determine cores needed for threaded
         threadedCapacity=0
         c = len(coreList)-1
-        remainingCores = len(coreList)-len(self.soloCores)
+        remainingCores = len(coreList)-len(self.soloCores) - (1 if dedicatedIRQ else 0)
         while threadedCapacity < self.totalThreadedUtil:
             threadedCapacity = threadedCapacity + 2*(1-coreList[c].utilOnCore[Constants.LEVEL_C])
             self.threadedCores.append(coreList[c])
@@ -398,10 +439,10 @@ class CritLevelSystem:
             remainingCores -=1
             if remainingCores < 0:
                 return False
-        print("Prelim. threadedCores cores:")
-        for core in self.threadedCores:
-            print(core.coreID, end=",")
-        print()
+        #print("Prelim. threadedCores cores:")
+        #for core in self.threadedCores:
+        #    print(core.coreID, end=",")
+        #print()
 
         #allocate any leftover cores
         nextSoloCore=len(self.soloCores)
@@ -431,47 +472,58 @@ class CritLevelSystem:
                     self.soloCores.append(coreList[nextSoloCore])
                     nextSoloCore += 1
             remainingCores -=1
-                
+
         #define the clusters
         #each cluster has a list of cores, list of tasks
-        numSoloClusters=math.ceil(len(self.soloCores)/coresPerComplex)
-        for i in range (numSoloClusters):
-            clusterCores=[]
-            for j in range(i*coresPerComplex, min((i+1)*coresPerComplex, len(self.soloCores))):
-                clusterCores.append(coreList[j])
-            thisCluster=Cluster(clusterCores, False)
+        #numSoloClusters=math.ceil(len(self.soloCores)/coresPerComplex)
+
+        c = 1 if dedicatedIRQ else 0
+        clusterCores = []
+        while c - (1 if dedicatedIRQ else 0) < len(self.soloCores):
+            clusterCores.append(coreList[c])
+            if (c + 1) % coresPerComplex == 0:
+                thisCluster = Cluster(clusterCores, False)
+                self.soloClusters.append(thisCluster)
+                clusterCores = []
+            c += 1
+        if len(clusterCores) > 0:
+            thisCluster = Cluster(clusterCores, False)
+            self.sharedSoloCluster = thisCluster
             self.soloClusters.append(thisCluster)
-            
-            
-        numThreadedClusters=math.ceil(len(self.threadedCores)/coresPerComplex)
-        print("numThreadedClusters: ", numThreadedClusters)
+
+        #numThreadedClusters=math.ceil(len(self.threadedCores)/coresPerComplex)
+        #print("numThreadedClusters: ", numThreadedClusters)
         #sizeLastSoloCluster=len(self.soloClusters[numSoloClusters-1].clusterCores)
         # deal with odd-sized threaded cluster, if it exists
-        j=len(self.soloCores)
+        j=len(self.soloCores) + (1 if dedicatedIRQ else 0)
         clusterCores=[]
         while j <len(coreList):
             clusterCores.append(coreList[j])
             if (j+1) % coresPerComplex==0:
                 thisCluster=Cluster(clusterCores, True)
+                if self.sharedSoloCluster is not None and self.sharedThreadedCluster is None:
+                    self.sharedThreadedCluster = thisCluster
                 self.threadedClusters.append(thisCluster)
                 clusterCores=[]
             j+=1
             #print("j=", j)
+        #coresPerComplex should evenly divide the number of cores
+        assert(len(clusterCores) == 0)
 
         return True
 
             
 
     #applies to level C only
-    def assignTasksToClusters(self):
-        '''
+    def assignTasksToClusters(self) -> bool:
+        """
         For each set of tasks:
         --sort by non-increasing util.
         --assign to clusters via worst-fit (most space remaining) + testAndAddTask
         --sort clusters by increasing space remaining
         --testAndAddTask until we find something that fits
         --if nothing fits, fail
-        '''
+        """
 
         #solo tasks
         self.soloTasks.sort(key=lambda x:x.currentSoloUtil, reverse=True)
@@ -506,40 +558,38 @@ class CritLevelSystem:
         sharedSoloCluster = None
         sharedThreadedCluster = None
         for cluster in self.soloClusters:
-            if len(cluster.coresThisCluster) == corePerComplex:
+            if cluster is not self.sharedSoloCluster:
                 #single cluster in this complex
                 complexList[complexNo].clusterList.append(cluster)
                 complexList[complexNo].coreList = cluster.coresThisCluster
                 complexNo += 1
-            else:
-                sharedSoloCluster = cluster
         for cluster in self.threadedClusters:
-            if len(cluster.coresThisCluster) == corePerComplex:
+            if cluster is not self.sharedThreadedCluster:
                 #single cluster in this complex
                 complexList[complexNo].clusterList.append(cluster)
                 complexList[complexNo].coreList = cluster.coresThisCluster
                 complexNo += 1
-            else:
-                sharedThreadedCluster = cluster
 
-        if sharedSoloCluster is not None and sharedThreadedCluster is not None:
-            complexList[complexNo].clusterList.append(sharedSoloCluster)
-            complexList[complexNo].clusterList.append(sharedThreadedCluster)
-            complexList[complexNo].coreList.extend(sharedSoloCluster.coresThisCluster)
-            complexList[complexNo].coreList.extend(sharedThreadedCluster.coresThisCluster)
+        if self.sharedSoloCluster is not None or self.sharedThreadedCluster is not None:
+            #should only get here if a single cluster is shared
+            assert(self.sharedSoloCluster is not None and self.sharedThreadedCluster is not None)
+            complexList[complexNo].clusterList.append(self.sharedSoloCluster)
+            complexList[complexNo].clusterList.append(self.sharedThreadedCluster)
+            complexList[complexNo].coreList.extend(self.sharedSoloCluster.coresThisCluster)
+            complexList[complexNo].coreList.extend(self.sharedThreadedCluster.coresThisCluster)
 
     def assignClusterID(self):
         if self.level == Constants.LEVEL_C:
-            id = 0
+            clus_id = 0
             for cluster in self.soloClusters:
-                cluster.clusterID = id
-                id += 1
+                cluster.clusterID = clus_id
+                clus_id += 1
             for cluster in self.threadedClusters:
-                cluster.clusterID = id
-                id += 1
+                cluster.clusterID = clus_id
+                clus_id += 1
 
     def printCoreAssignment(self,coreList):
-        critLevel = self.level
+        #critLevel = self.level
         startingTaskID = self.tasksThisLevel[0].ID
         for c in range(len(coreList)):
             print("core: ",c)
@@ -547,7 +597,7 @@ class CritLevelSystem:
                 print("<",self.tasksThisLevel[pair[0]-startingTaskID].ID,",",self.tasksThisLevel[pair[1]-startingTaskID].ID,">",end=" ")
             print(coreList[c].utilOnCore[self.level])
 
-
+'''
 def main():
     
     from taskSystem import taskSystem
@@ -582,6 +632,6 @@ def main():
     #schedA = mySystem.levelA.schedulabilityTest(platform.coreList,mySystem.levels)
     schedB = mySystem.levelB.schedulabilityTest(platform.coreList,mySystem.levels)
     print(schedB)
-
-if __name__== "__main__":
-     main()
+'''
+#if __name__== "__main__":
+#     main()
