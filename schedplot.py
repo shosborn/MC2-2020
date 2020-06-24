@@ -73,7 +73,7 @@ def main():
     
         for ndx, sched in enumerate(schednames):
             plt.plot(npdata["SYS_UTIL"], npdata[sched], LINE_STYLE[ndx], label=legendnames[ndx], linewidth=lw, markersize = lw*3)
-            plt.xlim(0,9)
+            plt.xlim(0,int(max(npdata["SYS_UTIL"])+1))
             lw -= 0.3
         
         plt.legend(loc="upper right")

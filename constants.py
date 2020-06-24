@@ -78,7 +78,7 @@ class Constants:
     #related to sched study params
 
     CORES_PER_COMPLEX = 4
-    NUM_CORES = 4
+    NUM_CORES = 8
     UTIL_STEP_SIZE = 0.5
 
     CACHE_LEVELS = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 

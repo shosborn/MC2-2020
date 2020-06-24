@@ -24,9 +24,9 @@ class Task:
         #order of indexing is sibling task ID, MY number of half ways, crit level, sibling's number of half ways
         #This data structure assumes self is not sibling and that both are AB tasks
         #This data structure is not exposed outside of task generation. Use get_pair_util.
-        self.allUtil_AB: Dict[int, Dict[int, Dict[int, Dict[int, float]]]] = {}
+        self.allUtil_AB: Dict[(int, int, int, int, float)] = {}
         #order of indexing is number of half ways, crit level
-        self.allUtil_C: Dict[int, Dict[int, float]] = {}
+        self.allUtil_C: Dict[(int, int), float] = {}
         self.level: int = taskLevel
         if taskLevel == Constants.LEVEL_C:
             self.currentSoloUtil=0
@@ -116,15 +116,15 @@ def get_pair_util(task1: Task, task2: Task, level: int, cache1: int, cache2: int
         if task1 is not task2:
             #Siblings are irrelevant in SMT costs at C
             #Assuming C is colorless, so we get the full way here
-            return task1.allUtil_C[2*cache1][level]
+            return task1.allUtil_C[(2*cache1,level)]
         else:
             return task1.cost_per_cache_crit(2*cache1,level)/task1.period
     else: #Assume we're in A or B
         if task1 is not task2:
             #The larger within this container is the container's cost
             return max([
-                task1.allUtil_AB[task2.ID][cache1][level][cache2],
-                task2.allUtil_AB[task1.ID][cache2][level][cache1]
+                task1.allUtil_AB[(task2.ID,cache1,level,cache2)],
+                task2.allUtil_AB[(task1.ID,cache2,level,cache1)]
             ])
         else:
             #I'm solo, so I'm colorless and I get the whole way, but only the minimum of my two way sets

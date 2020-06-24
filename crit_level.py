@@ -115,7 +115,7 @@ class CritLevelSystem:
                 if task is sibling:
                     #SMT irrelevant here
                     continue
-                task.allUtil_AB[sibling.ID] = {}
+                #task.allUtil_AB[sibling.ID] = {}
                 if distributions.sample_bernoulli(smt_unfriendliness_chance):
                     smt_friendliness = 10 #punish for SMT
                 else:
@@ -123,16 +123,16 @@ class CritLevelSystem:
                     smt_friendliness = max([smt_friendliness, 0.01])
                 #For threaded tasks, do to color separation, I am only entitled to at most half the half-ways
                 for half_ways in range(Constants.MAX_HALF_WAYS//2+1):
-                    task.allUtil_AB[sibling.ID][half_ways] = {}
+                    #task.allUtil_AB[sibling.ID][half_ways] = {}
                     for level in range(self.level, Constants.MAX_LEVEL):
-                        task.allUtil_AB[sibling.ID][half_ways][level] = {}
+                        #task.allUtil_AB[sibling.ID][half_ways][level] = {}
                         #The sibling task is limited to half the half-ways for the same reason
                         for half_ways_sibling in range(Constants.MAX_HALF_WAYS//2+1):
                             #Use the individual costs and SMT friendliness to compute an SMT cost
-                            task.allUtil_AB[sibling.ID][half_ways][level][half_ways_sibling] = \
+                            task.allUtil_AB[(sibling.ID,half_ways,level,half_ways_sibling)] = \
                                 task.cost_per_cache_crit(half_ways, level) + \
                                 smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
-                            task.allUtil_AB[sibling.ID][half_ways][level][half_ways_sibling] /= task.period
+                            task.allUtil_AB[(sibling.ID,half_ways,level,half_ways_sibling)] /= task.period
         return
 
     def _generate_smt_costs_C(self, smt_friendliness_mean: float, smt_friendliness_std: float) -> None:
@@ -141,9 +141,9 @@ class CritLevelSystem:
             #SMT should not decrease costs
             smt_friendliness = max([smt_friendliness, 1.0])
             for half_ways in range(Constants.MAX_HALF_WAYS+1):
-                task.allUtil_C[half_ways] = {}
+                #task.allUtil_C[half_ways] = {}
                 for level in range(self.level, Constants.MAX_LEVEL):
-                    task.allUtil_C[half_ways][level] = \
+                    task.allUtil_C[(half_ways,level)] = \
                         task.cost_per_cache_crit(half_ways, level)*smt_friendliness/task.period
         return
 
