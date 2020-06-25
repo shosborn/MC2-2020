@@ -16,7 +16,7 @@ from gurobipy import *
 #import math
 #import random
 #from overheads import Overheads
-#from numpy import random
+#import numpy as np
 from typing import Dict, Tuple
 
 #Use this to detect if we accidentally created an infinite loop
@@ -62,7 +62,7 @@ class CritLevelSystem:
         assert(0 <= task_idx < len(self.tasksThisLevel))
         return self.tasksThisLevel[task_idx]
 
-    def _createTask(self, task_id: int, scenario: Dict[str, str]) -> Task:
+    def _createTask(self, task_id: int, scenario: Dict[str, str], startingID: int) -> Task:
         """
         We create a task that has information on how it runs individually, but not yet as a thread
         :param task_id:
@@ -110,11 +110,12 @@ class CritLevelSystem:
             prev_scale = min([prev_scale, tentative_scaling])
 
         #return a basic task. Still need to produce any threading related data
-        return Task(task_id, self.level, baseCost, period, relDeadline, wss, cache_sense, crit_scale_dict)
+        return Task(task_id, self.level, baseCost, period, relDeadline, wss, cache_sense, crit_scale_dict, startingID)
 
     def _generate_smt_costs_AB(self, smt_friendliness_mean: float,
                                smt_friendliness_std: float, smt_unfriendliness_chance: float) -> None:
         for task in self.tasksThisLevel:
+            task.initialize_smt_array_AB(len(self.tasksThisLevel))
             for sibling in self.tasksThisLevel:
                 if task is sibling:
                     #SMT irrelevant here
@@ -133,10 +134,14 @@ class CritLevelSystem:
                         #The sibling task is limited to half the half-ways for the same reason
                         for half_ways_sibling in range(Constants.MAX_HALF_WAYS//2+1):
                             #Use the individual costs and SMT friendliness to compute an SMT cost
-                            task.allUtil_AB[(sibling.ID,half_ways,level,half_ways_sibling)] = \
-                                task.cost_per_cache_crit(half_ways, level) + \
-                                smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
-                            task.allUtil_AB[(sibling.ID,half_ways,level,half_ways_sibling)] /= task.period
+                            util = task.cost_per_cache_crit(half_ways, level) + \
+                                   smt_friendliness*sibling.cost_per_cache_crit(half_ways_sibling, level)
+                            util /= task.period
+                            task.set_smt_util_AB(sibling.ID, half_ways, level, half_ways_sibling, util)
+                            #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] = \
+                            #    task.cost_per_cache_crit(half_ways, level) + \
+                            #    smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
+                            #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] /= task.period
         return
 
     def _generate_smt_costs_C(self, smt_friendliness_mean: float, smt_friendliness_std: float) -> None:
@@ -147,8 +152,10 @@ class CritLevelSystem:
             for half_ways in range(Constants.MAX_HALF_WAYS+1):
                 #task.allUtil_C[half_ways] = {}
                 for level in range(self.level, Constants.MAX_LEVEL):
-                    task.allUtil_C[(half_ways,level)] = \
-                        task.cost_per_cache_crit(half_ways, level)*smt_friendliness/task.period
+                    util = task.cost_per_cache_crit(half_ways, level)*smt_friendliness/task.period
+                    task.set_smt_util_C(half_ways, level, util)
+                    #task.allUtil_C[(half_ways,level)] = \
+                    #    task.cost_per_cache_crit(half_ways, level)*smt_friendliness/task.period
         return
 
     def _generate_smt_costs(self, smt_dist: Dict[int, Tuple[float,float,float]]) -> None:
@@ -182,7 +189,7 @@ class CritLevelSystem:
         while thisLevelUtil < targetUtil:
             #beware of infinite loops
             assert(taskID - startingID < _MAX_TASKS)
-            newTask = self._createTask(taskID, scenario)
+            newTask = self._createTask(taskID, scenario, startingID)
             taskID += 1
             newTask_A_util = _task_A_util(newTask)
             if thisLevelUtil + newTask_A_util >= targetUtil:
