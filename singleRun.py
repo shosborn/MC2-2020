@@ -5,13 +5,13 @@ from constants import Constants
 from overheads import Overheads
 from schedTest import *
 from LLCAllocation import LLCAllocation
-
+import random
 
 def main():
     totalCores = 6
     coresPerComplex = 2
     cacheSizeL3 = 2
-
+    random.seed(12345)
     assumedCache = cacheSizeL3
 
     # Test levels A and B
@@ -38,6 +38,7 @@ def main():
         print("failed to assign cores at level A")
         return
 
+    print("printing pairs by core: ")
     mySystem.printPairsByCore()
 
     # Test of level C
@@ -77,6 +78,8 @@ def main():
     mySystem.levelC.assignTasksToClusters()
     mySystem.printClusters()
 
+
+
     taskCount = 0
     for critLevels in mySystem.levels.values():
         taskCount += len(critLevels.tasksThisLevel)
@@ -85,15 +88,43 @@ def main():
     taskCount = len(mySystem.levelA.tasksThisLevel) + len(mySystem.levelB.tasksThisLevel) + len(
         mySystem.levelC.tasksThisLevel)
     overhead.populateOverheadValue(taskCount=taskCount, allCriticalityLevels=mySystem.levels)
-
-    '''print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, scheme=Constants.THREAD_LEVEL_ISOLATION,
-                              dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))
-    print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, scheme=Constants.CORE_LEVEL_ISOLATION,
-                              dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))'''
-
     solver = LLCAllocation()
     #mySystem.platform.complexList[1].clusterList = [] #check if can handle empty cluster
     #solver.threadWiseAllocation(mySystem, 8, overhead, mySystem.platform.complexList[1], coresPerComplex, True, mySystem.platform.coreList[0])
+    print("\n")
+    print("Basic Symmetric")
+    for complex in mySystem.platform.complexList:
+        if not solver.coreWiseAllocation(mySystem, 8, overhead, complex, coresPerComplex, True, mySystem.platform.coreList[0]):
+            print("False")
+            return
+
+    print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, dedicatedIRQ=True,
+                                        dedicatedIRQCore=mySystem.platform.coreList[0]))
+
+    overhead = Overheads()
+    overhead.loadOverheadData('oheads')
+    taskCount = len(mySystem.levelA.tasksThisLevel) + len(mySystem.levelB.tasksThisLevel) + len(
+        mySystem.levelC.tasksThisLevel)
+    overhead.populateOverheadValue(taskCount=taskCount, allCriticalityLevels=mySystem.levels)
+    solver = LLCAllocation()
+    print("\n")
+    print("Assymmetric 2nd")
+    for complex in mySystem.platform.complexList:
+        if not solver.threadWiseAllocation2(mySystem, 8, overhead, complex, coresPerComplex, True, mySystem.platform.coreList[0]):
+            print("False")
+            return
+
+    print(schedTestTaskSystem(taskSystem=mySystem, overhead=overhead, dedicatedIRQ=True,
+                                        dedicatedIRQCore=mySystem.platform.coreList[0]))
+
+    overhead = Overheads()
+    overhead.loadOverheadData('oheads')
+    taskCount = len(mySystem.levelA.tasksThisLevel) + len(mySystem.levelB.tasksThisLevel) + len(
+        mySystem.levelC.tasksThisLevel)
+    overhead.populateOverheadValue(taskCount=taskCount, allCriticalityLevels=mySystem.levels)
+    solver = LLCAllocation()
+    print("\n")
+    print("Assymmetric 1st")
     for complex in mySystem.platform.complexList:
         if not solver.threadWiseAllocation(mySystem, 8, overhead, complex, coresPerComplex, True, mySystem.platform.coreList[0]):
             print("False")
