@@ -146,7 +146,10 @@ class LLCAllocation:
                 sortedLeveCInflatedUtil = sorted(levelCUtilValues, reverse=True)
 
                 HData[clusterIDtoIndex[cluster.clusterID], numWays] = 0
-                m = len(cluster.coresThisCluster)
+                if cluster.threaded:
+                    m = 2*len(cluster.coresThisCluster)
+                else:
+                    m = len(cluster.coresThisCluster)
                 for i in range(0, min(m - 1, len(sortedLeveCInflatedUtil))):
                     if i==0:
                         hData[clusterIDtoIndex[cluster.clusterID], numWays] = sortedLeveCInflatedUtil[i]
@@ -345,16 +348,29 @@ class LLCAllocation:
 
         EPSILON = 1e-6
         for cluster in complex.clusterList:
-            m = len(cluster.coresThisCluster)
+            if cluster.threaded:
+                m = 2*len(cluster.coresThisCluster)
+                solver.addConstr(sum(2*U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + 2*U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[
+                                     (Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
 
-            solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[
-                (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[
-                (Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
+                solver.addConstr(sum(2*U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + 2*U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)]
+                                     for core in cluster.coresThisCluster) +
+                                 (m - 1) * h[cluster.clusterID] + H[cluster.clusterID]
+                                 <= m - EPSILON)
+            else:
+                m = len(cluster.coresThisCluster)
+                solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[
+                                     (Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
 
-            solver.addConstr( sum(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)] + U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)]
-                              for core in cluster.coresThisCluster) +
-                              (m-1) * h[cluster.clusterID] +  H[cluster.clusterID]
-                              <= m - EPSILON )
+                solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)]
+                                     for core in cluster.coresThisCluster) +
+                                 (m - 1) * h[cluster.clusterID] + H[cluster.clusterID]
+                                 <= m - EPSILON)
+
 
             #set objective function
         solver.setObjective( sum(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)] + U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)]
@@ -417,41 +433,41 @@ class LLCAllocation:
                 print(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)].x)
             '''
 
-        for cluster in complex.clusterList:
-            util = {}
-            util[(Constants.LEVEL_C, Constants.LEVEL_C)] = 0
-            print("cluster: ", cluster.clusterID)
-            for core in cluster.coresThisCluster:
-                util[(Constants.LEVEL_A,Constants.LEVEL_A)] = 0
-                util[(Constants.LEVEL_A,Constants.LEVEL_B)] = 0
-                util[(Constants.LEVEL_A,Constants.LEVEL_C)] = 0
-                util[(Constants.LEVEL_B,Constants.LEVEL_B)] = 0
-                util[(Constants.LEVEL_B,Constants.LEVEL_C)] = 0
-                print("core id: ", core.coreID)
-                for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
-                    tasksThisLevel = taskSystem.levels[taskLevel].tasksThisLevel
-                    startingIndex = tasksThisLevel[0].ID
-                    for pair in core.pairsOnCore[taskLevel]:
-                        for costLevel in range(taskLevel,Constants.LEVEL_B+1):
-                            if pair[0]!=pair[1]:
-                                util[(taskLevel,costLevel)] += tasksThisLevel[pair[0]-startingIndex].allUtil[(pair[1],costLevel,min(core.cacheAB)*2)]
-                            else:
-                                util[(taskLevel, costLevel)] += tasksThisLevel[pair[0] - startingIndex].allUtil[
-                                    (pair[1], costLevel, core.cacheAB[0]+core.cacheAB[1])]
-                print("core id: ", core.coreID)
-                print(" level A util: ", util[(Constants.LEVEL_A,Constants.LEVEL_A)])
-                print(" level B util: ", util[Constants.LEVEL_A,Constants.LEVEL_B]+util[(Constants.LEVEL_B,Constants.LEVEL_B)])
+        #for cluster in complex.clusterList:
+        #    util = {}
+        #    util[(Constants.LEVEL_C, Constants.LEVEL_C)] = 0
+        #    print("cluster: ", cluster.clusterID)
+        #    for core in cluster.coresThisCluster:
+        #        util[(Constants.LEVEL_A,Constants.LEVEL_A)] = 0
+        #        util[(Constants.LEVEL_A,Constants.LEVEL_B)] = 0
+        #        util[(Constants.LEVEL_A,Constants.LEVEL_C)] = 0
+        #        util[(Constants.LEVEL_B,Constants.LEVEL_B)] = 0
+        #        util[(Constants.LEVEL_B,Constants.LEVEL_C)] = 0
+        #        print("core id: ", core.coreID)
+        #        for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
+        #            tasksThisLevel = taskSystem.levels[taskLevel].tasksThisLevel
+        #            startingIndex = tasksThisLevel[0].ID
+        #            for pair in core.pairsOnCore[taskLevel]:
+        #                for costLevel in range(taskLevel,Constants.LEVEL_B+1):
+        #                    if pair[0]!=pair[1]:
+        #                        util[(taskLevel,costLevel)] += tasksThisLevel[pair[0]-startingIndex].allUtil[(pair[1],costLevel,min(core.cacheAB)*2)]
+        #                    else:
+        #                        util[(taskLevel, costLevel)] += tasksThisLevel[pair[0] - startingIndex].allUtil[
+        #                            (pair[1], costLevel, core.cacheAB[0]+core.cacheAB[1])]
+        #        print("core id: ", core.coreID)
+        #        print(" level A util: ", util[(Constants.LEVEL_A,Constants.LEVEL_A)])
+        #        print(" level B util: ", util[Constants.LEVEL_A,Constants.LEVEL_B]+util[(Constants.LEVEL_B,Constants.LEVEL_B)])
 
-            for task in cluster.taskList:
-                if cluster.threaded:
-                    thisPairUtil = 0
-                    for otherTask in cluster.taskList:
-                        if task != otherTask:
-                            thisPairUtil = max(thisPairUtil, task.allUtil[(otherTask.ID, Constants.LEVEL_C, cluster.coresThisCluster[0].cacheC)])
-                    util[(Constants.LEVEL_C,Constants.LEVEL_C)] += thisPairUtil
-                else:
-                    util[(Constants.LEVEL_C,Constants.LEVEL_C)] += task.allUtil[(task.ID, Constants.LEVEL_C, cluster.coresThisCluster[0].cacheC)]
-            print("cluster util: ", util[(Constants.LEVEL_A,Constants.LEVEL_C)]+util[(Constants.LEVEL_B,Constants.LEVEL_C)]+util[(Constants.LEVEL_C,Constants.LEVEL_C)])
+        #    for task in cluster.taskList:
+        #        if cluster.threaded:
+        #            thisPairUtil = 0
+        #            for otherTask in cluster.taskList:
+        #                if task != otherTask:
+        #                    thisPairUtil = max(thisPairUtil, task.allUtil[(otherTask.ID, Constants.LEVEL_C, cluster.coresThisCluster[0].cacheC)])
+        #            util[(Constants.LEVEL_C,Constants.LEVEL_C)] += thisPairUtil
+        #        else:
+        #            util[(Constants.LEVEL_C,Constants.LEVEL_C)] += task.allUtil[(task.ID, Constants.LEVEL_C, cluster.coresThisCluster[0].cacheC)]
+        #    print("cluster util: ", util[(Constants.LEVEL_A,Constants.LEVEL_C)]+util[(Constants.LEVEL_B,Constants.LEVEL_C)]+util[(Constants.LEVEL_C,Constants.LEVEL_C)])
 
 
         return solver.status
@@ -519,7 +535,10 @@ class LLCAllocation:
                 sortedLeveCInflatedUtil = sorted(levelCUtilValues, reverse=True)
 
                 HData[clusterIDtoIndex[cluster.clusterID], numWays] = 0
-                m = len(cluster.coresThisCluster)
+                if cluster.threaded:
+                    m = 2*len(cluster.coresThisCluster)
+                else:
+                    m = len(cluster.coresThisCluster)
                 for i in range(0, min(m - 1, len(sortedLeveCInflatedUtil))):
                     if i==0:
                         hData[clusterIDtoIndex[cluster.clusterID], numWays] = sortedLeveCInflatedUtil[i]
@@ -769,17 +788,28 @@ class LLCAllocation:
 
         EPSILON = 1e-6
         for cluster in complex.clusterList:
-            m = len(cluster.coresThisCluster)
+            if cluster.threaded:
+                m = 2*len(cluster.coresThisCluster)
+                solver.addConstr(sum(2*U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + 2*U[(
+                    Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[(
+                    Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
 
-            solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[(
-                                Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[(
-                                    Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
+                solver.addConstr(sum(2*U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + 2*U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)]
+                                     for core in cluster.coresThisCluster) +
+                                 (m - 1) * h[cluster.clusterID] + H[cluster.clusterID]
+                                 <= m - EPSILON)
+            else:
+                m = len(cluster.coresThisCluster)
+                solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[(
+                    Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[(
+                    Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
 
-            solver.addConstr( sum(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)] + U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)]
-                              for core in cluster.coresThisCluster) +
-                              (m-1) * h[cluster.clusterID] +  H[cluster.clusterID]
-                              <= m - EPSILON )
-
+                solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)]
+                                     for core in cluster.coresThisCluster) +
+                                 (m - 1) * h[cluster.clusterID] + H[cluster.clusterID]
+                                 <= m - EPSILON)
             #set objective function
         solver.setObjective( sum(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)] + U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)]
                                     for core in complex.coreList) + sum(U[(Constants.LEVEL_C,Constants.LEVEL_C,cluster.clusterID)]
@@ -905,8 +935,10 @@ class LLCAllocation:
                 levelCUtilValues = list(inflatedUtil.values())
                 sortedLeveCInflatedUtil = sorted(levelCUtilValues, reverse=True)
 
-
-                m = len(cluster.coresThisCluster)
+                if cluster.threaded:
+                    m = 2*len(cluster.coresThisCluster)
+                else:
+                    m = len(cluster.coresThisCluster)
                 for i in range(0, min(m - 1, len(sortedLeveCInflatedUtil))):
                     if i==0:
                         hData[clusterIDtoIndex[cluster.clusterID], numWays] = sortedLeveCInflatedUtil[i]
@@ -1006,16 +1038,30 @@ class LLCAllocation:
 
         EPSILON = 1e-6
         for cluster in complex.clusterList:
-            m = len(cluster.coresThisCluster)
+            if cluster.threaded:
+                m = 2*len(cluster.coresThisCluster)
 
-            solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[(
-                                Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[(
-                                    Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
+                solver.addConstr(sum(2*U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + 2*U[(
+                    Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[(
+                    Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
 
-            solver.addConstr( sum(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)] + U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)]
-                              for core in cluster.coresThisCluster) +
-                              (m-1) * h[cluster.clusterID] +  H[cluster.clusterID]
-                              <= m - EPSILON )
+                solver.addConstr(sum(2*U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + 2*U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)]
+                                     for core in cluster.coresThisCluster) +
+                                 (m - 1) * h[cluster.clusterID] + H[cluster.clusterID]
+                                 <= m - EPSILON)
+            else:
+                m = len(cluster.coresThisCluster)
+
+                solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[(
+                    Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)] for core in cluster.coresThisCluster) + U[(
+                    Constants.LEVEL_C, Constants.LEVEL_C, cluster.clusterID)] <= m)
+
+                solver.addConstr(sum(U[(Constants.LEVEL_A, Constants.LEVEL_C, core.coreID)] + U[
+                    (Constants.LEVEL_B, Constants.LEVEL_C, core.coreID)]
+                                     for core in cluster.coresThisCluster) +
+                                 (m - 1) * h[cluster.clusterID] + H[cluster.clusterID]
+                                 <= m - EPSILON)
 
             #set objective function
         solver.setObjective( sum(U[(Constants.LEVEL_A,Constants.LEVEL_C,core.coreID)] + U[(Constants.LEVEL_B,Constants.LEVEL_C,core.coreID)]

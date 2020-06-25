@@ -23,7 +23,7 @@ class Cluster:
         # adds newTask iff doing so won't make system unschedulable
         tempTaskList = self.taskList.copy()
         tempTaskList.append(newTask)
-        newUsedCapacity = self.usedCapacity + newTask.currentThreadedUtil
+        newUsedCapacity = self.usedCapacity + (newTask.currentThreadedUtil if self.threaded else newTask.currentSoloUtil)
         if not self.threaded:
             #first test
             m=len(self.coresThisCluster)
@@ -69,8 +69,8 @@ class Cluster:
             self.remainingCapacity=self.remainingCapacity-newTask.currentThreadedUtil
             self.usedCapacity=self.usedCapacity+newTask.currentThreadedUtil
         else:
-            self.remainingCapacity = self.remainingCapacity - newTask.currentThreadedUtil
-            self.usedCapacity = self.usedCapacity + newTask.currentThreadedUtil
+            self.remainingCapacity = self.remainingCapacity - newTask.currentSoloUtil
+            self.usedCapacity = self.usedCapacity + newTask.currentSoloUtil
         self.taskList.append(newTask)
 
     '''

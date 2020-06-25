@@ -377,7 +377,7 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
             # solver.threadWiseAllocation(mySystem, 8, overhead, mySystem.platform.complexList[1], coresPerComplex, True, mySystem.platform.coreList[0])
             for curr_complex in scenSystem.platform.complexList:
                 if this_iter_results[Constants.THREAD_FINE]:
-                        gStatus = solver.threadWiseAllocation(scenSystem, 16, overhead, curr_complex, len(curr_complex.coreList),
+                        gStatus = solver.threadWiseAllocation2(scenSystem, 16, overhead, curr_complex, len(curr_complex.coreList),
                                                         True,
                                                         scenSystem.platform.coreList[0])
                         if gStatus is not GRB.OPTIMAL:

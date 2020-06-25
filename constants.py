@@ -126,10 +126,10 @@ class Constants:
     # from RTSS '15
     CRITICALITY_UTIL_DIST: Dict[str, Dict[int,Tuple[float,float]]] = {
         'C-Heavy':      {LEVEL_A: LIGHT_RATIO, LEVEL_B: LIGHT_RATIO, LEVEL_C: HEAVY_RATIO},
-        #'C-All':      {LEVEL_A: (0.0, 0.0), LEVEL_B: (0.0,0.0), LEVEL_C: (1.0,1.0)},
-        #'C-None':       {LEVEL_A: (0.4,0.6), LEVEL_B: (0.4,0.6), LEVEL_C: (0.0,0.0)},
+        'C-All':      {LEVEL_A: (0.0, 0.0), LEVEL_B: (0.0,0.0), LEVEL_C: (1.0,1.0)},
+        'C-None':       {LEVEL_A: (0.4,0.6), LEVEL_B: (0.4,0.6), LEVEL_C: (0.0,0.0)},
        #'B-Heavy':      {LEVEL_A: LOW_MODERATE_RATIO, LEVEL_B: HEAVY_RATIO, LEVEL_C: LIGHT_RATIO},
-       #'AB-Moderate':  {LEVEL_A: HIGH_MODERATE_RATIO, LEVEL_B: HIGH_MODERATE_RATIO, LEVEL_C: LIGHT_RATIO},
+       'AB-Moderate':  {LEVEL_A: HIGH_MODERATE_RATIO, LEVEL_B: HIGH_MODERATE_RATIO, LEVEL_C: LIGHT_RATIO},
     }
 
 
@@ -165,7 +165,7 @@ class Constants:
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
         'High':     {LEVEL_A: (.45, .12, 0.0), LEVEL_B: (.45, .12, 0.0), LEVEL_C: (1.1, .1, 0)},
         #'Moderate': {LEVEL_A: (.45, .12, 0.2), LEVEL_B: (.45, .12, 0.2), LEVEL_C: (1.45, .1, 0)},
-        #'Low':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1, 0)}
+        'Low':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1, 0)}
     }
 
     
