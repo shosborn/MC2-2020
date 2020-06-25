@@ -54,6 +54,8 @@ def main():
         npdata["SYS_UTIL"] = np.asarray(data["SYS_UTIL"])
         idx_ord = npdata["SYS_UTIL"].argsort()
 
+        print(filename)
+
         for key in data.keys():
             npdata[key] = np.asarray(data[key])[idx_ord]
 

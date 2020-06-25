@@ -307,6 +307,8 @@ class CritLevelSystem:
         #print('Time to pair = %d' % int(self.timeToPair))
         #print("Printing thePairs")
         #print(self.thePairs)
+        #for task1ID, task2ID, pairUtil in self.thePairs:
+        #    assert(task1ID == task2ID)
         return gStatus
 
     #applies to crit levels A and B
@@ -425,6 +427,7 @@ class CritLevelSystem:
             else:
                 self.threadedTasks.append(thisTask)
                 self.totalThreadedUtil = self.totalThreadedUtil + thisTask.currentThreadedUtil
+                #assert False
 
     #applies to level C only
     def divideCores(self, coreList, coresPerComplex, dedicatedIRQ: bool = False) -> bool:

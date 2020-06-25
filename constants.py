@@ -113,7 +113,6 @@ class Constants:
     #HEAVY_RATIO = (0.4, 0.6)
     HEAVY_RATIO = (0.5, 0.7)
 
-    #change based on data from Josh
     #I'm interpreting this as the fraction my Level \ell cost is relative to my Level A cost
     #normally distributed
     CRIT_SENSITIVITY: Dict[str, Dict[int,Tuple[float,float]]] = {
@@ -125,9 +124,9 @@ class Constants:
 
     # from RTSS '15
     CRITICALITY_UTIL_DIST: Dict[str, Dict[int,Tuple[float,float]]] = {
-        'C-Heavy':      {LEVEL_A: LIGHT_RATIO, LEVEL_B: LIGHT_RATIO, LEVEL_C: HEAVY_RATIO},
-        'C-All':      {LEVEL_A: (0.0, 0.0), LEVEL_B: (0.0,0.0), LEVEL_C: (1.0,1.0)},
-        'C-None':       {LEVEL_A: (0.4,0.6), LEVEL_B: (0.4,0.6), LEVEL_C: (0.0,0.0)},
+        #'C-Heavy':      {LEVEL_A: LIGHT_RATIO, LEVEL_B: LIGHT_RATIO, LEVEL_C: HEAVY_RATIO},
+        #'C-All':      {LEVEL_A: (0.0, 0.0), LEVEL_B: (0.0,0.0), LEVEL_C: (1.0,1.0)},
+        #'C-None':       {LEVEL_A: (0.4,0.6), LEVEL_B: (0.4,0.6), LEVEL_C: (0.0,0.0)},
        #'B-Heavy':      {LEVEL_A: LOW_MODERATE_RATIO, LEVEL_B: HEAVY_RATIO, LEVEL_C: LIGHT_RATIO},
        'AB-Moderate':  {LEVEL_A: HIGH_MODERATE_RATIO, LEVEL_B: HIGH_MODERATE_RATIO, LEVEL_C: LIGHT_RATIO},
     }
@@ -163,9 +162,10 @@ class Constants:
     # second is for Level C (from ECRTS '19, kind of)
     # level C contains an extra 0 for type consistency
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'High':     {LEVEL_A: (.45, .12, 0.0), LEVEL_B: (.45, .12, 0.0), LEVEL_C: (1.1, .1, 0)},
+        #'High':     {LEVEL_A: (.45, .12, 0.0), LEVEL_B: (.45, .12, 0.0), LEVEL_C: (1.1, .1, 0)},
         #'Moderate': {LEVEL_A: (.45, .12, 0.2), LEVEL_B: (.45, .12, 0.2), LEVEL_C: (1.45, .1, 0)},
-        'Low':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1, 0)}
+        #'Low':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1, 0)},
+        'None':     {LEVEL_A: (2.0, 0.0, 1.0), LEVEL_B: (2.0, 0.0, 1.0), LEVEL_C: (3.0, 0.0, 0)}
     }
 
     
@@ -174,7 +174,6 @@ class Constants:
     
     
     '''
-    # Shareef's version
     CRITICALITY_UTIL_DIST = {
         'A-Heavy':      [HEAVY_RATIO, LIGHT_RATIO, LIGHT_RATIO],
         'B-Heavy':      [LIGHT_RATIO, HEAVY_RATIO, LIGHT_RATIO],
@@ -190,4 +189,5 @@ class Constants:
     DEBUG = False
     VERBOSE = False
     TIMEKEEPING = False
+    RUN_FINE = True
 

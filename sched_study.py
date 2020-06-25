@@ -96,7 +96,7 @@ def generateTaskSystem(scenario, sysUtil):
 def cloneTaskSystem(oldSystem: taskSystem) -> taskSystem:
     totalCores = Constants.NUM_CORES
     coresPerComplex = Constants.CORES_PER_COMPLEX
-    cacheSizeL3 = 2
+    cacheSizeL3 = Constants.CACHE_SIZE_L3
 
     assumedCache = cacheSizeL3
     mySystem = taskSystem(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
@@ -257,6 +257,9 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
         for scheme in sched_ratio_dict.keys():
             this_iter_results[scheme] = True
 
+        if not Constants.RUN_FINE:
+            this_iter_results[Constants.THREAD_FINE] = False
+
         if Constants.TIMEKEEPING:
             generate_start = time.clock()
         scenSystem = generateTaskSystem(scenario, sysUtil)
@@ -290,7 +293,7 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
                 if Constants.DEBUG:
                     debug_dict['B_MAKEPAIR_'+interpretGurobiStatus(gStatus)] += 1
 
-        if this_iter_results[Constants.THREAD_COURSE] or this_iter_results[Constants.THREAD_COURSE]:
+        if this_iter_results[Constants.THREAD_COURSE] or this_iter_results[Constants.THREAD_FINE]:
             if not scenSystem.levelB.assignToCores(alg=Constants.WORST_FIT,
                                                coreList=scenSystem.platform.coreList, dedicatedIRQ=True):
                 this_iter_results[Constants.THREAD_COURSE] = this_iter_results[Constants.THREAD_FINE] = False
@@ -429,6 +432,7 @@ def main():
     parser.add_argument('-t', "--timekeeping", action='store_true', help="Track time spent")
     parser.add_argument('-v', "--verbose", action='store_true', help="Output print statements")
     parser.add_argument('-d', "--debug", action='store_true', help="Debug output")
+    parser.add_argument('-f', "--fine_omit", action='store_true', help="Skip running the fine way allocation scheme")
     args = parser.parse_args()
     numCores = args.processors
     corePerComplex = args.corePerComplex
@@ -439,6 +443,8 @@ def main():
         Constants.VERBOSE = True
     if args.debug:
         Constants.DEBUG = True
+    if args.fine_omit:
+        Constants.RUN_FINE = False
 
     startUtil = numCores / 2
     endUtil = 2 * numCores
@@ -468,14 +474,15 @@ def main():
 
         outfiles[title(scenario)].writeheader()
         failureDict[title(scenario)] = dict([ (util, False) for util in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE)])
-        for sysUtil in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
+        #for sysUtil in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
+        for sysUtil in [7]: #np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
             dp.append((scenario, sysUtil, numCores, corePerComplex))
     #if Constants.DEBUG:
     #    seq_dps(dp, outfiles)
     #else:
     #    thread_dps(dp, outfiles)
-    thread_dps(dp, outfiles)
-    #seq_dps(dp, outfiles)
+    #thread_dps(dp, outfiles)
+    seq_dps(dp, outfiles)
 
     return
 
