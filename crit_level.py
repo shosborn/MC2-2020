@@ -352,7 +352,7 @@ class CritLevelSystem:
                 coreList[bestCoreSoFar].utilOnCore[self.level] = utilOnBest
                 coreList[bestCoreSoFar].pairsOnCore[self.level].append(pair)
                 #update lower levels utilizations upto level B on this core (can be done upto C, but may impact C's code), will be starting point for level B
-                for critLevel in range(self.level+1,Constants.LEVEL_B+1):
+                for critLevel in range(self.level+1,Constants.MAX_LEVEL):
                     #coreList[bestCoreSoFar].utilOnCore[critLevel] += self.tasksThisLevel[task1-startingTaskID]._allUtil[(task2, critLevel, self.assumedCache)]
                     #assume each thread gets half the whole L3 here
                     coreList[bestCoreSoFar].utilOnCore[critLevel] += get_pair_util(
