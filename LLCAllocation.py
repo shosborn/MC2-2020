@@ -850,7 +850,7 @@ class LLCAllocation:
         return solver.status
 
 
-def coreWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None) -> int:
+    def coreWiseAllocation(self, taskSystem, maxWays, overheads, complex, corePerComplex, dedicatedIRQ=False, dedicatedIRQCore=None) -> int:
         '''
 
         :param corePerComplex: number of cores per complex
