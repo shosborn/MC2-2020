@@ -19,6 +19,9 @@ from gurobipy import *
 #import numpy as np
 from typing import Dict, Tuple
 
+from core import compCore
+from cluster import compCluster
+
 #Use this to detect if we accidentally created an infinite loop
 _MAX_TASKS = 1000
 
@@ -132,16 +135,20 @@ class CritLevelSystem:
                     for level in range(self.level, Constants.MAX_LEVEL):
                         #task.allUtil_AB[sibling.ID][half_ways][level] = {}
                         #The sibling task is limited to half the half-ways for the same reason
-                        for half_ways_sibling in range(Constants.MAX_HALF_WAYS//2+1):
-                            #Use the individual costs and SMT friendliness to compute an SMT cost
-                            util = task.cost_per_cache_crit(half_ways, level) + \
-                                   smt_friendliness*sibling.cost_per_cache_crit(half_ways_sibling, level)
-                            util /= task.period
-                            task.set_smt_util_AB(sibling.ID, half_ways, level, half_ways_sibling, util)
-                            #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] = \
-                            #    task.cost_per_cache_crit(half_ways, level) + \
-                            #    smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
-                            #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] /= task.period
+                        #for half_ways_sibling in range(Constants.MAX_HALF_WAYS//2+1):
+                        #    #Use the individual costs and SMT friendliness to compute an SMT cost
+                        #    util = task.cost_per_cache_crit(half_ways, level) + \
+                        #           smt_friendliness*sibling.cost_per_cache_crit(half_ways_sibling, level)
+                        #    util /= task.period
+                        #    task.set_smt_util_AB(sibling.ID, half_ways, level, half_ways_sibling, util)
+                        #    #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] = \
+                        #    #    task.cost_per_cache_crit(half_ways, level) + \
+                        #    #    smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
+                        #    #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] /= task.period
+                        util = task.cost_per_cache_crit(half_ways, level) + \
+                            smt_friendliness*sibling.cost_per_cache_crit(half_ways, level)
+                        util /= task.period
+                        task.set_smt_util_AB(sibling.ID, half_ways, level, half_ways, util)
         return
 
     def _generate_smt_costs_C(self, smt_friendliness_mean: float, smt_friendliness_std: float) -> None:
@@ -593,6 +600,7 @@ class CritLevelSystem:
             assert(self.sharedSoloCluster is not None and self.sharedThreadedCluster is not None)
             complexList[complexNo].clusterList.append(self.sharedSoloCluster)
             complexList[complexNo].clusterList.append(self.sharedThreadedCluster)
+            complexList[complexNo].coreList = []
             complexList[complexNo].coreList.extend(self.sharedSoloCluster.coresThisCluster)
             complexList[complexNo].coreList.extend(self.sharedThreadedCluster.coresThisCluster)
 
@@ -653,3 +661,58 @@ def main():
 '''
 #if __name__== "__main__":
 #     main()
+
+def compareCritLevel(cl1: CritLevelSystem, cl2: CritLevelSystem):
+    #self.level: int = level
+    assert(cl1.level is cl2.level)
+
+    assert(len(cl1.thePairs) is len(cl2.thePairs))
+    for pair in cl1.thePairs:
+        assert(pair in cl2.thePairs)
+    #self.thePairs = []
+    #self.timeToPair = 0
+    #self.tasksThisLevel = []
+    assert(len(cl1.tasksThisLevel) is len(cl2.tasksThisLevel))
+    for task in cl1.tasksThisLevel:
+        assert(task in cl2.tasksThisLevel)
+
+    assert(cl1.assumedCache is cl2.assumedCache)
+    #self.assumedCache = assumedCache
+    if cl1.level == Constants.LEVEL_C:
+        #self.soloTasks = []
+        assert(len(cl1.soloTasks) is len(cl2.soloTasks))
+        for task in cl1.soloTasks:
+            assert(task in cl2.soloTasks)
+        #self.threadedTasks = []
+        assert(len(cl1.threadedTasks) is len(cl2.threadedTasks))
+        for task in cl1.threadedTasks:
+            assert(task in cl2.threadedTasks)
+        #self.totalSoloUtil = 0
+        assert(-1e9 < cl1.totalSoloUtil - cl2.totalSoloUtil < 1e9)
+        #self.totalThreadedUtil = 0
+        assert(-1e9 < cl1.totalThreadedUtil - cl2.totalThreadedUtil < 1e9)
+        #self.threadedCores = []
+        assert(len(cl1.threadedCores) is len(cl2.threadedCores))
+        for idx in range(len(cl1.threadedCores)):
+            compCore(cl1.threadedCores[idx], cl2.threadedCores[idx])
+        assert(len(cl1.soloCores) is len(cl2.soloCores))
+        for idx in range(len(cl1.soloCores)):
+            compCore(cl1.soloCores[idx], cl2.soloCores[idx])
+        #self.soloCores = []
+        assert(len(cl1.soloClusters) is len(cl2.soloClusters))
+        for idx in range(len(cl1.soloClusters)):
+            compCluster(cl1.soloClusters[idx], cl2.soloClusters[idx])
+        #self.soloClusters = []
+        assert(len(cl1.threadedClusters) is len(cl2.threadedClusters))
+        for idx in range(len(cl1.threadedClusters)):
+            compCluster(cl1.threadedClusters[idx], cl2.threadedClusters[idx])
+        #self.threadedClusters = []
+        if cl1.sharedSoloCluster is None:
+            assert(cl2.sharedSoloCluster is None)
+        else:
+            compCluster(cl1.sharedSoloCluster, cl2.sharedSoloCluster)
+        #self.sharedSoloCluster = None
+        if cl1.sharedThreadedCluster is None:
+            assert(cl2.sharedThreadedCluster is None)
+        else:
+            compCluster(cl1.sharedThreadedCluster, cl2.sharedThreadedCluster)

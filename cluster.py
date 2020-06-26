@@ -1,5 +1,6 @@
 from constants import Constants
 
+from core import compCore
 
 class Cluster:
     def __init__(self, coresThisCluster, threaded):
@@ -46,7 +47,7 @@ class Cluster:
             m=2*len(self.coresThisCluster)
             #first test
             if newUsedCapacity>m:
-                print("Failed first test.")
+                #print("Failed first test.")
                 return False
             # secondTest
             sortedTasks = sorted(tempTaskList, key=lambda x: x.currentThreadedUtil, reverse=True)
@@ -54,9 +55,9 @@ class Cluster:
             for t in range(min(m, len(self.taskList))):
                 sumLargest = sumLargest + sortedTasks[t].currentThreadedUtil
             if (m - 1) * sortedTasks[0].currentThreadedUtil + sumLargest + self.usedCapacityHigherLevels >= m:
-                print("Failed second test.")
-                print("Single largest=", sortedTasks[0].currentThreadedUtil)
-                print("sumLargest=", sumLargest)
+                #print("Failed second test.")
+                #print("Single largest=", sortedTasks[0].currentThreadedUtil)
+                #print("sumLargest=", sumLargest)
                 #print("sum largest + used HL=", (m - 1) * sortedTasks[0].currentThreadedUtil + sumLargest + self.usedCapacityHigherLevels )
                 return False
 
@@ -111,3 +112,31 @@ class Cluster:
             if (m - 1) * sortedTasks[0].currentThreadedUtil + sumLargest + self.usedCapacityHigherLevels >= m:  #should be currentThrededUtil?
                 return False
             return True
+
+def compCluster(clus1: Cluster, clus2: Cluster):
+    #self.coresThisCluster = coresThisCluster
+    assert( len(clus1.coresThisCluster) is len(clus2.coresThisCluster) )
+    for idx in range(len(clus1.coresThisCluster)):
+        compCore(clus1.coresThisCluster[idx], clus2.coresThisCluster[idx])
+    #self.taskList = []
+    assert(len(clus1.taskList) is len(clus2.taskList))
+    for task in clus1.taskList:
+        assert(task in clus2.taskList)
+    #self.usedCapacityHigherLevels = 0
+    assert(-1e9 < clus1.usedCapacityHigherLevels - clus2.usedCapacityHigherLevels < 1e9)
+    #for c in coresThisCluster:
+    #    self.usedCapacityHigherLevels = self.usedCapacityHigherLevels + c.utilOnCore[Constants.LEVEL_C]
+    assert(-1e9 < clus1.usedCapacityHigherLevels - clus2.usedCapacityHigherLevels < 1e9)
+    assert(-1e9 < clus1.remainingCapacity - clus2.remainingCapacity < 1e9)
+    assert(-1e9 < clus1.usedCapacity - clus2.usedCapacity < 1e9)
+    assert(clus1.threaded is clus2.threaded)
+    assert(clus1.clusterID is clus2.clusterID)
+    #if threaded:
+    #    self.usedCapacityHigherLevels = self.usedCapacityHigherLevels * 2
+    #    self.remainingCapacity = 2 * len(coresThisCluster) - self.usedCapacityHigherLevels
+    #else:
+    #    self.remainingCapacity = len(coresThisCluster) - self.usedCapacityHigherLevels
+
+    #self.usedCapacity = self.usedCapacityHigherLevels
+    #self.threaded = threaded
+    #self.clusterID = 0

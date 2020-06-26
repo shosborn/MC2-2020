@@ -55,3 +55,20 @@ class Core:
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+def compCore(core1: Core, core2: Core):
+    assert( core1.coreID is core2.coreID )
+    assert( core1.complexID - core2.complexID == 0 )
+    assert( core1.maxCapacity is core2.maxCapacity )
+    for level in range(Constants.MAX_LEVEL):
+        assert(-1e9 < core1.utilOnCore[level] - core2.utilOnCore[level] < 1e9)
+    for level in range(Constants.LEVEL_B+1):
+        for pair in core1.pairsOnCore[level]:
+            assert(pair in core2.pairsOnCore[level])
+        for pair in core2.pairsOnCore[level]:
+            assert(pair in core1.pairsOnCore[level])
+    assert( core1.assignedCache is core2.assignedCache )
+    assert ( core1.cacheAB[0] is core2.cacheAB[0])
+    assert ( core1.cacheAB[1] is core2.cacheAB[1])
+    assert( core1.cacheC is core2.cacheC )
+    assert( core1.minLevelAPeriod is core2.minLevelAPeriod )

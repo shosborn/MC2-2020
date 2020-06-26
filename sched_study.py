@@ -1,5 +1,5 @@
 from constants import Constants
-from taskSystem import taskSystem
+from taskSystem import taskSystem, compareSystems
 from LLCAllocation import LLCAllocation
 from overheads import Overheads
 
@@ -347,6 +347,8 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
                 if Constants.DEBUG:
                     debug_dict['NUM_ASSIGN_CLUSTERS_C_NO_THREAD'] += 1
 
+        #compareSystems(scenSystem,cloneSystem)
+
         if Constants.TIMEKEEPING:
             print('TIME,Assign_Tasks,%d' % int(time.clock() - assign_start))
 
@@ -387,7 +389,6 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
                             this_iter_results[Constants.THREAD_FINE] = False
                             if Constants.DEBUG:
                                 debug_dict['FINE_CACHE_ILP_' + interpretGurobiStatus(gStatus)] += 1
-                        break
                 if this_iter_results[Constants.THREAD_COURSE]:
                         gStatus = solver.coreWiseAllocation(scenSystem, 16, overhead, curr_complex, len(curr_complex.coreList),
                                                       True,
@@ -396,7 +397,6 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
                             this_iter_results[Constants.THREAD_COURSE] = False
                             if Constants.DEBUG:
                                 debug_dict['COURSE_CACHE_ILP_' + interpretGurobiStatus(gStatus)] += 1
-                        break
 
 
         if Constants.TIMEKEEPING:
@@ -474,15 +474,15 @@ def main():
 
         outfiles[title(scenario)].writeheader()
         failureDict[title(scenario)] = dict([ (util, False) for util in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE)])
-        #for sysUtil in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
-        for sysUtil in [7]: #np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
+        for sysUtil in np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
+        #for sysUtil in [7]: #np.arange(startUtil, endUtil + Constants.UTIL_STEP_SIZE, Constants.UTIL_STEP_SIZE):
             dp.append((scenario, sysUtil, numCores, corePerComplex))
     #if Constants.DEBUG:
     #    seq_dps(dp, outfiles)
     #else:
     #    thread_dps(dp, outfiles)
-    #thread_dps(dp, outfiles)
-    seq_dps(dp, outfiles)
+    thread_dps(dp, outfiles)
+    #seq_dps(dp, outfiles)
 
     return
 

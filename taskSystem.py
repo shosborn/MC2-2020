@@ -7,8 +7,8 @@ Created on Fri May  1 14:25:48 2020
 
 
 
-from hardware_platform import HardwarePlatform
-from crit_level import CritLevelSystem
+from hardware_platform import HardwarePlatform, comparePlatforms
+from crit_level import CritLevelSystem, compareCritLevel
 from constants import Constants
 from overheads import Overheads
 from schedTest import *
@@ -177,7 +177,20 @@ def main():
                               dedicatedIRQ=True, dedicatedIRQCore=mySystem.platform.coreList[0]))
 
 
+def compareSystems(ts1: taskSystem, ts2: taskSystem):
+    #self.platform = HardwarePlatform(totalCores, coresPerComplex, cacheSizeL3, assumedCache)
+    comparePlatforms(ts1.platform, ts2.platform)
+    #self.levelA = CritLevelSystem(Constants.LEVEL_A, assumedCache)
+    compareCritLevel(ts1.levelA, ts2.levelA)
+    compareCritLevel(ts1.levelB, ts2.levelB)
+    compareCritLevel(ts1.levelC, ts2.levelC)
 
+    #self.levelB = CritLevelSystem(Constants.LEVEL_B, assumedCache)
+    #self.levelC = CritLevelSystem(Constants.LEVEL_C, assumedCache)
+
+    #self.levels = {Constants.LEVEL_A: self.levelA, Constants.LEVEL_B: self.levelB, Constants.LEVEL_C: self.levelC}
+    for level in range(Constants.MAX_LEVEL):
+        compareCritLevel(ts1.levels[level], ts2.levels[level])
 
 if __name__== "__main__":
      main()
