@@ -132,7 +132,7 @@ class Constants:
        # 'C-All':      {LEVEL_A: (0.0, 0.0), LEVEL_B: (0.0,0.0), LEVEL_C: (1.0,1.0)},
        # 'C-None':       {LEVEL_A: (0.4,0.6), LEVEL_B: (0.4,0.6), LEVEL_C: (0.0,0.0)},
        'B-Heavy':      {LEVEL_A: LOW_MODERATE_RATIO, LEVEL_B: HEAVY_RATIO, LEVEL_C: LIGHT_RATIO},
-       'AB-Moderate':  {LEVEL_A: HIGH_MODERATE_RATIO, LEVEL_B: HIGH_MODERATE_RATIO, LEVEL_C: LIGHT_RATIO},
+       # 'AB-Moderate':  {LEVEL_A: HIGH_MODERATE_RATIO, LEVEL_B: HIGH_MODERATE_RATIO, LEVEL_C: LIGHT_RATIO},
     }
 
 
@@ -170,9 +170,9 @@ class Constants:
     # for Level-A and Level-B. The "unfriendliness chance" is the probability described on page 7,
     # paragraph 2 of Sims's RTCSA'20 paper - set it to 0 to disable.
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'Optimistic':       {LEVEL_A: (.38, .61, 0), LEVEL_B: (.38, .61, 0), LEVEL_C: (1.10, .1, 0)}, # A/B: TACLe-based; 10x diff removed and <0 to 0.01. C: Prior work
-        'Moderate':         {LEVEL_A: (.46, .51, 0), LEVEL_B: (.46, .51, 0), LEVEL_C: (1.45, .1, 0)}, # A/B: TACLe-based; 10x diff removed. C: Prior work
-        'Pessimistic':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.80, .1, 0)}, # A/B/C: From prior work
+        'Optimistic_SMT':       {LEVEL_A: (.38, .61, 0), LEVEL_B: (.38, .61, 0), LEVEL_C: (1.10, .1, 0)}, # A/B: TACLe-based; 10x diff removed and <0 to 0.01. C: Prior work
+        'Moderate_SMT':         {LEVEL_A: (.46, .51, 0), LEVEL_B: (.46, .51, 0), LEVEL_C: (1.45, .1, 0)}, # A/B: TACLe-based; 10x diff removed. C: Prior work
+        'Pessimistic_SMT':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.80, .1, 0)}, # A/B/C: From prior work
         # 'None':     {LEVEL_A: (2.0, 0.0, 1.0), LEVEL_B: (2.0, 0.0, 1.0), LEVEL_C: (3.0, 0.0, 0)}
     }
 
