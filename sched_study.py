@@ -30,19 +30,37 @@ def title(scenario: Dict[str,str]) -> str:
                       scenario['critSensitivity']
     ])
 
-def generateScenario():
+def generateScenario(crit, period, taskUtil, smt):
     #goal: return a scenario corresponding to every possible combination
 
-    paramList = {'critUtilDist':Constants.CRITICALITY_UTIL_DIST.keys(), 
-                 'periodDist':Constants.PERIOD_DIST.keys(), 
-                 'taskUtilDist':Constants.TASK_UTIL.keys(),
+    paramList = {#'critUtilDist':Constants.CRITICALITY_UTIL_DIST.keys(), 
+                 #'periodDist':Constants.PERIOD_DIST.keys(), 
+                 #'taskUtilDist':Constants.TASK_UTIL.keys(),
                  'possCacheSensitivity':Constants.CACHE_SENSITIVITY.keys(),
                  'wssDist':Constants.WSS_DIST.keys(),
-                 'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys(),
+                 #'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys(),
                  'critSensitivity':Constants.CRIT_SENSITIVITY.keys()
                  }
-
-    
+    if crit=="All":
+        paramList['critUtilDist']=Constants.CRITICALITY_UTIL_DIST.keys()
+    else:
+        paramList['critUtilDist']=[crit]
+        
+    if period=="All":
+        paramList['periodDist']=Constants.PERIOD_DIST.keys()
+    else:
+        paramList['periodDist']=[period]
+        
+    if taskUtil=="All":
+        paramList['taskUtilDist']=Constants.TASK_UTIL.keys()
+    else:
+        paramList['taskUtilDist']=[taskUtil]
+        
+    if smt=="All":
+        paramList['smtEffectDist']=Constants.SMT_EFFECTIVENESS_DIST.keys()
+    else:
+        paramList['smtEffectDist']=[smt]
+        
     keys = paramList.keys()
     
     vals = paramList.values()
@@ -423,6 +441,7 @@ failureDict: Dict[str, Dict[float,bool]] = {}
 failureReasons = []
 
 def main():
+
     parser = argparse.ArgumentParser()
     # parser.add_argument('-d', "--datafile", type = argparse.FileType('w'),
     # default = sys.stdout,
@@ -433,9 +452,19 @@ def main():
     parser.add_argument('-v', "--verbose", action='store_true', help="Output print statements")
     parser.add_argument('-d', "--debug", action='store_true', help="Debug output")
     parser.add_argument('-f', "--fine_omit", action='store_true', help="Skip running the fine way allocation scheme")
+    parser.add_argument('-p', "--period", default="All", help="Period distribution")
+    parser.add_argument('-s', "--smt", default="All", help="SMT effectiveness")
+    parser.add_argument('-u', "--util", default="All", help="per-task util")
+    parser.add_argument('-r', "--crit", default="All", help="criticality util")
     args = parser.parse_args()
     numCores = args.processors
     corePerComplex = args.corePerComplex
+    periodDist = args.period
+    smtDist = args.smt
+    critDist=args.crit
+    taskUtilDist=args.util
+    # because it's not implemented
+    Constants.RUN_FINE = False
 
     if args.timekeeping:
         Constants.TIMEKEEPING = True
@@ -446,10 +475,19 @@ def main():
     if args.fine_omit:
         Constants.RUN_FINE = False
 
+    # hard coded as opposed to command lines
+    '''
+    numCores=8
+    corePerComplex=4
+    Constants.TIMEKEEPING = False
+    Constants.DEBUG=True
+    Constants.RUN_FINE = False
+    '''
+    
     startUtil = numCores / 2
     endUtil = 2 * numCores
 
-    scenarios = generateScenario()
+    scenarios = generateScenario(critDist, periodDist, taskUtilDist, smtDist)
 
     dp = []
     #output
