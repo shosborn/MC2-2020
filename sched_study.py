@@ -27,7 +27,8 @@ def title(scenario: Dict[str,str]) -> str:
                       scenario['possCacheSensitivity'],
                       scenario['wssDist'],
                       scenario['smtEffectDist'],
-                      scenario['critSensitivity']
+                      scenario['critSensitivity'],
+                      scenario['maxThreadUtil']
     ])
 
 def generateScenario(crit, period, taskUtil, smt):
