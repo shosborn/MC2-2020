@@ -107,8 +107,8 @@ class CritLevelSystem:
         prev_scale = 1.0
         for level in range(Constants.LEVEL_A, Constants.MAX_LEVEL):
             assert(0 < prev_scale <= 1.0)
-            crit_sense_mean, crit_sense_std = crit_sense_dist_by_crit[level]
-            tentative_scaling = max([0, distributions.sample_normal_dist(crit_sense_mean, crit_sense_std)])
+            crit_sense_mean, crit_sense_std, crit_sense_min = crit_sense_dist_by_crit[level]
+            tentative_scaling = max([crit_sense_min, distributions.sample_normal_dist(crit_sense_mean, crit_sense_std)])
             crit_scale_dict[level] = min([prev_scale, tentative_scaling])
             prev_scale = min([prev_scale, tentative_scaling])
 
