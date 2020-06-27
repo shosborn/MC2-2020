@@ -60,22 +60,25 @@ class Task:
         cost_func = lambda _half_ways: (cost_no_cache - self.baseCost)*math.exp(-rate*_half_ways) + self.baseCost
         assert(math.fabs(cost_func(self.wss_in_half_ways) - self.baseCost) <= 2*Task._EXP_TOLERANCE)
         for half_ways in range(Constants.MAX_HALF_WAYS+1):
-            # compute costs at our crit level
-            baseCostWays = cost_func(half_ways)
-            #self._per_cache_crit_costs[half_ways] = {}
-            #self._per_cache_crit_costs[half_ways][Constants.LEVEL_A] = baseCostWays
-            self._per_cache_crit_costs[half_ways,Constants.LEVEL_A] = baseCostWays
-            # compute costs at lower crit levels
-            for level in crit_scale_dict.keys():
-                if level is Constants.LEVEL_A:
-                    #just computed this
-                    continue
-                #Need to divide by scaling at our current level to get back to Level-A pessimism, then scale
-                #   back down to the lower level
-                #self._per_cache_crit_costs[half_ways][level] = \
-                #    baseCostWays*crit_scale_dict[level]/crit_scale_dict[self.level]
-                self._per_cache_crit_costs[half_ways,level] = \
-                    baseCostWays*crit_scale_dict[level]/crit_scale_dict[self.level]
+            #L2 is 256KB. If our WSS is less than L2, we are unaffected by amount of L3 we're allocated
+            if self.wss <= 0.25:
+                self._per_cache_crit_costs[half_ways,Constants.LEVEL_A] = self.baseCost
+                for level in crit_scale_dict.keys():
+                    if level is Constants.LEVEL_A:
+                        continue
+                    self._per_cache_crit_costs[half_ways,level] = \
+                        self.baseCost*crit_scale_dict[level]
+            else:
+                # compute costs at our crit level
+                baseCostWays = cost_func(half_ways)
+                self._per_cache_crit_costs[half_ways,Constants.LEVEL_A] = baseCostWays
+                # compute costs at lower crit levels
+                for level in crit_scale_dict.keys():
+                    if level is Constants.LEVEL_A:
+                        #just computed this
+                        continue
+                    self._per_cache_crit_costs[half_ways,level] = \
+                        baseCostWays*crit_scale_dict[level]
 
     def deflate(self, deflation_factor: float) -> None:
         assert( 0 < deflation_factor < 1)

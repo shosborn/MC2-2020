@@ -92,8 +92,8 @@ class CritLevelSystem:
         #compute wss
         wss_mean, wss_std = Constants.WSS_DIST[scenario['wssDist']]
         wss = distributions.sample_normal_dist(wss_mean, wss_std)
-        #shouldn't have negative wss, 0.5 is arbitrary for now
-        wss = max([0.5, wss])
+        #shouldn't have negative wss, minimum of 32KB is informed by data
+        wss = max([0.001*32, wss])
 
         #randomly choose task's sensitivity to cache
         cache_sense_dist = Constants.CACHE_SENSITIVITY[scenario['possCacheSensitivity']]
