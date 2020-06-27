@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jun 26 18:08:52 2020
@@ -9,6 +10,12 @@ Created on Fri Jun 26 18:08:52 2020
 
 from constants import Constants
 import sys
+
+if len(sys.argv) < 3:
+    print("Usage:", sys.argv[0], "<email> <period configuration>")
+    print(" <email> is your @live.unc.edu email address")
+    print(" <period configuration> is one of", list(Constants.PERIOD_DIST.keys()))
+    exit(1)
 
 email = sys.argv[1]
 period = sys.argv[2]

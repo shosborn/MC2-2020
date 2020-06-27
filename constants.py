@@ -119,7 +119,7 @@ class Constants:
     # Note that if the sampled multiplier is greater than 1, it's automatically set to 1 (so large
     # standard deviations are safe).
     CRIT_SENSITIVITY: Dict[str, Dict[int,Tuple[float,float]]] = {
-        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0), LEVEL_B: (0.80, 0.23), LEVEL_C: (0.68, 0.26} # TACLe-based: 1M vs 10k vs 100 sample maximum differences
+        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0), LEVEL_B: (0.80, 0.23), LEVEL_C: (0.68, 0.26)} # TACLe-based: 1M vs 10k vs 100 sample maximum differences
     }
     
 
