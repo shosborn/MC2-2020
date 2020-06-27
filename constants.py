@@ -19,14 +19,6 @@ class Constants:
 
     THREAD_PER_CORE = 2
 
-    # maximum threaded util
-    '''
-    observation: making this 1 makes systems less schedulable,
-    despite 1 being the best choice to minimize total util
-    Best choice is dependent on the number of threads/ cluster?
-    '''
-    MAX_THREADED_UTIL = .7
-
     #related to cache allocation
 
     CORE_LEVEL_ISOLATION = 0 #two threads of a core share cache for level-A,-B tasks, option 2 from joshua
@@ -113,6 +105,17 @@ class Constants:
     #HEAVY_RATIO = (0.4, 0.6)
     HEAVY_RATIO = (0.5, 0.7)
 
+    '''
+    observation: making this 1 makes systems less schedulable,
+    despite 1 being the best choice to minimize total util
+    Best choice is dependent on the number of threads/ cluster?
+    '''
+    MAX_THREADED_UTIL: Dict[str, float] = {
+        'Max_Threaded_Util_1.0': 1.0,
+        'Max_Threaded_Util_0.75': 0.75,
+        'Max_Threaded_Util_0.5': 0.5
+    }
+    
     # These are normal distributions which when sampled produce a fractional multiplier to a
     # task's Level-A cost which yields the Level-B or Level-C cost when applied. Level-A should
     # always have a distribution centered at 1 with standard deviation 0.
