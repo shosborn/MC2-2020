@@ -39,7 +39,8 @@ def generateScenario(crit, period, taskUtil, smt):
                  'possCacheSensitivity':Constants.CACHE_SENSITIVITY.keys(),
                  'wssDist':Constants.WSS_DIST.keys(),
                  #'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys(),
-                 'critSensitivity':Constants.CRIT_SENSITIVITY.keys()
+                 'critSensitivity':Constants.CRIT_SENSITIVITY.keys(),
+                 'maxThreadUtil':Constants.MAX_THREADED_UTIL.keys()
                  }
     if crit=="All":
         paramList['critUtilDist']=Constants.CRITICALITY_UTIL_DIST.keys()
