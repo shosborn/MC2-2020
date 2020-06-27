@@ -113,10 +113,13 @@ class Constants:
     #HEAVY_RATIO = (0.4, 0.6)
     HEAVY_RATIO = (0.5, 0.7)
 
-    #I'm interpreting this as the fraction my Level \ell cost is relative to my Level A cost
-    #normally distributed
+    # These are normal distributions which when sampled produce a fractional multiplier to a
+    # task's Level-A cost which yields the Level-B or Level-C cost when applied. Level-A should
+    # always have a distribution centered at 1 with standard deviation 0.
+    # Note that if the sampled multiplier is greater than 1, it's automatically set to 1 (so large
+    # standard deviations are safe).
     CRIT_SENSITIVITY: Dict[str, Dict[int,Tuple[float,float]]] = {
-        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0), LEVEL_B: (0.8, 0.0), LEVEL_C: (0.68, 0.0)}
+        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0), LEVEL_B: (0.80, 0.23), LEVEL_C: (0.68, 0.26} # TACLe-based: 1M vs 10k vs 100 sample maximum differences
     }
     
 
@@ -132,12 +135,14 @@ class Constants:
     }
 
 
-    # from RTSS '15
+    # Each tuple contains a list of all selectable periods for that level/configuration pair.
+    # Note that all Level-B periods MUST be an even multiple of the Level-A hyperperiod for the
+    # MC^2 scheduler to work.
     PERIOD_DIST: Dict[str, Dict[int,Tuple[int,int]]] = { #in ms, converted to us in Task generation
-        'Many':         {LEVEL_A: (5, 10, 20), LEVEL_B: (20, 40, 80, 160), LEVEL_C: (10, 100)},
-        'Short':        {LEVEL_A: (3, 6), LEVEL_B: (6, 12), LEVEL_C: (3, 33)},
-        'Contrasting':  {LEVEL_A: (3, 6), LEVEL_B: (96, 192), LEVEL_C: (10, 100)},
-        'Long':         {LEVEL_A: (48, 96), LEVEL_B: (96, 192), LEVEL_C: (50, 500)}
+        'Many':         {LEVEL_A: (5, 10, 20), LEVEL_B: (20, 40, 80, 160), LEVEL_C: (10, 100)}, # From MC^2 meeting on 06/17
+        'Short':        {LEVEL_A: (3, 6), LEVEL_B: (6, 12), LEVEL_C: (3, 33)},      # From RTSS'15
+        'Contrasting':  {LEVEL_A: (3, 6), LEVEL_B: (96, 192), LEVEL_C: (10, 100)},  # From RTSS'15
+        'Long':         {LEVEL_A: (48, 96), LEVEL_B: (96, 192), LEVEL_C: (50, 500)} # From RTSS'15
     }
 
     # from RTSS '15
@@ -150,23 +155,23 @@ class Constants:
     
     # Informed by benchmarks
     CACHE_SENSITIVITY: Dict[str, Tuple[float,float,float]] = {
-         'Default_Sensitivity':   (1.16, 2.95, 15.68)
+         'Default_Sensitivity':   (1.16, 2.95, 15.68) # DIS-based; pre-rewrite and reparameterization of matrix/neighborhood stressmarks
     }
     
     # units are MB
-    # Normal distribution
-    # truncate negative values
+    # Normal distribution with tuple format: (mean, stdev)
+    # Negative values are truncated to 0
     WSS_DIST: Dict[str, Tuple[float,float]] = {
-        'Default_WSS': (2.0, 2.0)
+        'Default_WSS': (2.0, 2.0) # From MC^2 meeting on 06/24
     }
     
-    # first element is for levels A and B (from ECRTS '20)
-    # second is for Level C (from ECRTS '19, kind of)
-    # level C contains an extra 0 for type consistency
+    # Tuples are (mean, standard deviation, 0) for Level-C and (mean, stdev, unfriendliness chance)
+    # for Level-A and Level-B. The "unfriendliness chance" is the probability described on page 7,
+    # paragraph 2 of Sims's RTCSA'20 paper - set it to 0 to disable.
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'Optimistic':       {LEVEL_A: (.45, .12, 0.0), LEVEL_B: (.45, .12, 0.0), LEVEL_C: (1.1, .1, 0)},
-        'Moderate':         {LEVEL_A: (.45, .12, 0.2), LEVEL_B: (.45, .12, 0.2), LEVEL_C: (1.45, .1, 0)},
-        'Pessimistic':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.8, .1, 0)},
+        'Optimistic':       {LEVEL_A: (.38, .61, 0), LEVEL_B: (.38, .61, 0), LEVEL_C: (1.10, .1, 0)}, # A/B: TACLe-based; 10x diff removed and <0 to 0.01. C: Prior work
+        'Moderate':         {LEVEL_A: (.46, .51, 0), LEVEL_B: (.46, .51, 0), LEVEL_C: (1.45, .1, 0)}, # A/B: TACLe-based; 10x diff removed. C: Prior work
+        'Pessimistic':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.80, .1, 0)}, # A/B/C: From prior work
         # 'None':     {LEVEL_A: (2.0, 0.0, 1.0), LEVEL_B: (2.0, 0.0, 1.0), LEVEL_C: (3.0, 0.0, 0)}
     }
 
