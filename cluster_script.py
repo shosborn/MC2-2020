@@ -53,7 +53,7 @@ for t in taskUtilList:
             arg += " --smt "
             arg += s
             if customCoreCount:
-                arg +=" -- processors "
+                arg +=" --processors "
                 arg += numCores
             arg += "\""
             fullCommand = baseCommand + arg
