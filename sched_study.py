@@ -14,7 +14,7 @@ import scipy.stats
 import math
 from typing import Dict, List, Tuple
 import time
-
+import traceback
 
 from csv import DictWriter
 
@@ -203,8 +203,8 @@ def thread_dps(dp: List[Tuple[Dict[str,str], float, int, int]], outfiles: Dict[s
                 print('Completed %d%%' % completed_dp_percent)
         pool.close()
     except Exception as e:
-        print("Exception")
-        print(e)
+        print("Exception: ", e)
+        print(traceback.format_exc())
         pool.terminate()
         pool.join()
     return
