@@ -22,17 +22,14 @@ numCores="16"
 
 if len(sys.argv) < 3:
     print("Usage:", sys.argv[0], "<email> <period configuration> <core count>")
-    print(" <email> is your @live.unc.edu email address")
+    print(" <email> is your @university.edu email address (not cs)")
     print(" <period configuration> is one of", list(Constants.PERIOD_DIST.keys()))
-    print(" <core count> is the integer number of cores (default: 8)")
     exit(1)
 
 
 email = sys.argv[1]
 period = sys.argv[2]
-if len(sys.argv) > 3:
-    numCores = sys.argv[3]
-    customCoreCount=True
+
 
 # sbatch -p general -N 1 --mem 32g -n 1 -c 24 -t 0:20:00 --mail-type=end --mail-user=shosborn@live.unc.edu --wrap="python3 sched_study.py --period Short --smt High"
 
@@ -49,21 +46,27 @@ baseCommand += period
 critUtilList = Constants.CRITICALITY_UTIL_DIST.keys()
 taskUtilList = Constants.TASK_UTIL.keys()
 smtUtilList = Constants.SMT_EFFECTIVENESS_DIST.keys()
+coreCounts = ["8", "16"]
+maxThreadUtils = ["0.5", "0.75", "1.0"]
 
 # make sure critUtilList is ordered by priority
-for t in taskUtilList:
-    for c in critUtilList:
-        for s in smtUtilList:
-            arg = " --crit "
-            arg += c
-            arg += " --util "
-            arg += t
-            arg += " --smt "
-            arg += s
-            if customCoreCount:
-                arg +=" --processors "
-                arg += numCores
-            arg += "\""
-            fullCommand = baseCommand + arg
-            print(fullCommand)
-            print()
+for m in coreCounts:
+    for u in maxThreadUtils:
+        for t in taskUtilList:
+            for c in critUtilList:
+                for s in smtUtilList:
+                
+                    arg = " --processors "
+                    arg += m
+                    arg += " --limitThreadUtil "
+                    arg += u
+                    arg += " --crit "
+                    arg += c
+                    arg += " --util "
+                    arg += t
+                    arg += " --smt "
+                    arg += s
+                    arg += "\""
+                    fullCommand = baseCommand + arg
+                    print(fullCommand)
+                    print()
