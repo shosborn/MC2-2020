@@ -123,9 +123,8 @@ class Constants:
     # standard deviations are safe).
     # Input is (mean, stdev, min).
     CRIT_SENSITIVITY: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0, 0.0), LEVEL_B: (0.77, 0.23, 0.40), LEVEL_C: (0.65, 0.25, 0.13)} # TACLe-based: 1M vs 10k vs 100 sample maximum differences
+        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0, 0.0), LEVEL_B: (0.74, 0.24, 0.37), LEVEL_C: (0.63, 0.25, 0.13)} # TACLe-based: 10M vs 100k vs 1k sample maximum differences
     }
-    
 
     # for all of the following, abreviated versions with the same name may be useful for debugging.
 
@@ -173,17 +172,12 @@ class Constants:
     # for Level-A and Level-B. The "unfriendliness chance" is the probability described on page 7,
     # paragraph 2 of Sims's RTCSA'20 paper - set it to 0 to disable.
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'TACLE_SMT': {LEVEL_A: (.45, .30, .11), LEVEL_B: (.45, .30, .11), LEVEL_C: (0.98, .26, 0)}, # A/B: TACLe-based; 10x diff, <=0, >1 removed and >1 modeled. C: TACLe-based w/out coloring
-        'DIS_SMT':   {LEVEL_A: (.50, .08, .66), LEVEL_B: (.50, .08, .66), LEVEL_C: (1.47, .48, 0)}, # A/B: DIS-based; 10x diff, <=0, >1 removed and >1 modeled. C: DIS-based w/out coloring
-        'Prior_SMT': {LEVEL_A: (.60, .07, .20), LEVEL_B: (.60, .07, .20), LEVEL_C: (1.80, .10, 0)}, # A/B/C: From prior work
+        'DIS_SMTv2':   {LEVEL_A: (.46, .12, .68), LEVEL_B: (.46, .12, .68), LEVEL_C: (1.28, .19, 0)}, # A/B: DIS-based; 10x diff, <=0, >1 removed and >1 modeled. C: DIS-based w/out coloring
+        'TACLE_SMTv2': {LEVEL_A: (.56, .23, .14), LEVEL_B: (.56, .23, .14), LEVEL_C: (1.56, .46, 0)}, # A/B: TACLe-based; 10x diff, <=0, >1 removed and >1 modeled. C: TACLe-based w/out coloring
+        'Prior_SMTv2': {LEVEL_A: (.60, .07, .20), LEVEL_B: (.60, .07, .20), LEVEL_C: (1.80, .10, 0)}, # A/B/C: From prior work
         # 'None':     {LEVEL_A: (2.0, 0.0, 1.0), LEVEL_B: (2.0, 0.0, 1.0), LEVEL_C: (3.0, 0.0, 0)}
     }
 
-    
-    
-    
-    
-    
     '''
     CRITICALITY_UTIL_DIST = {
         'A-Heavy':      [HEAVY_RATIO, LIGHT_RATIO, LIGHT_RATIO],
