@@ -123,7 +123,7 @@ class Constants:
     # standard deviations are safe).
     # Input is (mean, stdev, min).
     CRIT_SENSITIVITY: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0, 0.0), LEVEL_B: (0.80, 0.23, 0.19), LEVEL_C: (0.68, 0.26, 0.09)} # TACLe-based: 1M vs 10k vs 100 sample maximum differences
+        'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0, 0.0), LEVEL_B: (0.77, 0.23, 0.40), LEVEL_C: (0.65, 0.25, 0.13)} # TACLe-based: 1M vs 10k vs 100 sample maximum differences
     }
     
 
@@ -173,9 +173,9 @@ class Constants:
     # for Level-A and Level-B. The "unfriendliness chance" is the probability described on page 7,
     # paragraph 2 of Sims's RTCSA'20 paper - set it to 0 to disable.
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'Optimistic_SMT':       {LEVEL_A: (.38, .61, 0), LEVEL_B: (.38, .61, 0), LEVEL_C: (1.10, .1, 0)}, # A/B: TACLe-based; 10x diff removed and <0 to 0.01. C: Prior work
-        'Moderate_SMT':         {LEVEL_A: (.46, .51, 0), LEVEL_B: (.46, .51, 0), LEVEL_C: (1.45, .1, 0)}, # A/B: TACLe-based; 10x diff removed. C: Prior work
-        'Pessimistic_SMT':      {LEVEL_A: (.6, .07, .2), LEVEL_B: (.6, .07, .2), LEVEL_C: (1.80, .1, 0)}, # A/B/C: From prior work
+        'TACLE_SMT': {LEVEL_A: (.45, .30, .11), LEVEL_B: (.45, .30, .11), LEVEL_C: (0.98, .26, 0)}, # A/B: TACLe-based; 10x diff, <=0, >1 removed and >1 modeled. C: TACLe-based w/out coloring
+        'DIS_SMT':   {LEVEL_A: (.50, .08, .66), LEVEL_B: (.50, .08, .66), LEVEL_C: (1.47, .48, 0)}, # A/B: DIS-based; 10x diff, <=0, >1 removed and >1 modeled. C: DIS-based w/out coloring
+        'Prior_SMT': {LEVEL_A: (.60, .07, .20), LEVEL_B: (.60, .07, .20), LEVEL_C: (1.80, .10, 0)}, # A/B/C: From prior work
         # 'None':     {LEVEL_A: (2.0, 0.0, 1.0), LEVEL_B: (2.0, 0.0, 1.0), LEVEL_C: (3.0, 0.0, 0)}
     }
 
