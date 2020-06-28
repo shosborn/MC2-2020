@@ -43,7 +43,7 @@ def aggregate():
                 if util == max_util or util == min_util:
                     write_row[scheme] += 0.5*scenario_data[scheme][util]
                 else:
-                    write_row[scheme] = scenario_data[scheme][util]
+                    write_row[scheme] += scenario_data[scheme][util]
         writer.writerow(write_row)
 
 if __name__ == "__main__":
