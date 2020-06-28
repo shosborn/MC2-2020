@@ -109,12 +109,14 @@ class Constants:
     observation: making this 1 makes systems less schedulable,
     despite 1 being the best choice to minimize total util
     Best choice is dependent on the number of threads/ cluster?
-    '''
+    Also, easier to just change the constant value as an input parameter than working into scenario parameters.
     MAX_THREADED_UTIL: Dict[str, float] = {
         'Max_Threaded_Util_1.0': 1.0,
         'Max_Threaded_Util_0.75': 0.75,
         'Max_Threaded_Util_0.5': 0.5
     }
+    '''
+    MAX_THREADED_UTIL = 1.0
     
     # These are normal distributions which when sampled produce a fractional multiplier to a
     # task's Level-A cost which yields the Level-B or Level-C cost when applied. Level-A should
