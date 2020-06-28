@@ -27,7 +27,9 @@ def title(scenario: Dict[str,str]) -> str:
                       scenario['possCacheSensitivity'],
                       scenario['wssDist'],
                       scenario['smtEffectDist'],
-                      scenario['critSensitivity']
+                      scenario['critSensitivity'],
+                      str(Constants.MAX_THREADED_UTIL),
+                      str(Constants.NUM_CORES)
     ])
 
 def generateScenario(crit, period, taskUtil, smt):
@@ -459,12 +461,14 @@ def main():
     parser.add_argument('-l', "limitThreadUtil", default=Constants.MAX_THREADED_UTIL, type=float, help="Max threaded util")
     args = parser.parse_args()
     numCores = args.processors
+    # ugly, but easiest way to get numCores into titles
+    Constants.NUM_CORES = numCores
     corePerComplex = args.corePerComplex
     periodDist = args.period
     smtDist = args.smt
     critDist=args.crit
     taskUtilDist=args.util
-    # this is ugly and hacky, but having the limit as a scenario parameter causes it's own problems.
+    # this is ugly and hacky, but having the limit as a scenario parameter causes its own problems.
     # downside is one command can only use one value for the util limit
     Constants.MAX_THREADED_UTIL = args.limitThreadUtil
     # because it's not implemented
