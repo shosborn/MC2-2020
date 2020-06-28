@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jun 26 18:08:52 2020
@@ -18,6 +19,14 @@ email="testEmail"
 period="Many"
 numCores="16"
 '''
+
+if len(sys.argv) < 3:
+    print("Usage:", sys.argv[0], "<email> <period configuration> <core count>")
+    print(" <email> is your @live.unc.edu email address")
+    print(" <period configuration> is one of", list(Constants.PERIOD_DIST.keys()))
+    print(" <core count> is the integer number of cores (default: 8)")
+    exit(1)
+
 
 email = sys.argv[1]
 period = sys.argv[2]
@@ -45,7 +54,6 @@ smtUtilList = Constants.SMT_EFFECTIVENESS_DIST.keys()
 for t in taskUtilList:
     for c in critUtilList:
         for s in smtUtilList:
-        
             arg = " --crit "
             arg += c
             arg += " --util "
@@ -59,7 +67,3 @@ for t in taskUtilList:
             fullCommand = baseCommand + arg
             print(fullCommand)
             print()
-        
-
-    
-        
