@@ -458,7 +458,7 @@ def main():
     parser.add_argument('-s', "--smt", default="All", help="SMT effectiveness")
     parser.add_argument('-u', "--util", default="All", help="per-task util")
     parser.add_argument('-r', "--crit", default="All", help="criticality util")
-    parser.add_argument('-l', "limitThreadUtil", default=Constants.MAX_THREADED_UTIL, type=float, help="Max threaded util")
+    parser.add_argument('-l', "--limitThreadUtil", default=Constants.MAX_THREADED_UTIL, type=float, help="Max threaded util")
     args = parser.parse_args()
     numCores = args.processors
     # ugly, but easiest way to get numCores into titles
