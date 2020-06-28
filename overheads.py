@@ -387,7 +387,10 @@ class Overheads:
 
             releaseLatency = self.overheadValue['releaseLatency'][costLevel]  # Delta_ev
 
-            smtOverhead = Constants.SMT_OVERHEAD[costLevel]
+            # The overhead of SMT at Level-A and Level-B is just the time that
+            # we have to wait for our sibling thread to receive our scheduling
+            # decision.
+            smtOverhead = ipi;
 
             #if Constants.DEBUG:
             #    print("cost level: ",costLevel)

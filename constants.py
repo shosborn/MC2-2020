@@ -61,8 +61,6 @@ class Constants:
 
     CPI_PER_UNIT = [0, 0, 0]#assumed to be small
 
-    SMT_OVERHEAD: Dict[int, float] = {LEVEL_A: 3, LEVEL_B: 2, LEVEL_C: 1} #assuming SMT overhead as constant, need to determine whether it depends on number of tasks
-
     IS_DEDICATED_IRQ = True
 
     OVERHEAD_ACCOUNT = True
