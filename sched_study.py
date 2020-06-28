@@ -27,8 +27,7 @@ def title(scenario: Dict[str,str]) -> str:
                       scenario['possCacheSensitivity'],
                       scenario['wssDist'],
                       scenario['smtEffectDist'],
-                      scenario['critSensitivity'],
-                      scenario['maxThreadUtil']
+                      scenario['critSensitivity']
     ])
 
 def generateScenario(crit, period, taskUtil, smt):
@@ -40,8 +39,7 @@ def generateScenario(crit, period, taskUtil, smt):
                  'possCacheSensitivity':Constants.CACHE_SENSITIVITY.keys(),
                  'wssDist':Constants.WSS_DIST.keys(),
                  #'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys(),
-                 'critSensitivity':Constants.CRIT_SENSITIVITY.keys(),
-                 'maxThreadUtil':Constants.MAX_THREADED_UTIL.keys()
+                 'critSensitivity':Constants.CRIT_SENSITIVITY.keys()
                  }
     if crit=="All":
         paramList['critUtilDist']=Constants.CRITICALITY_UTIL_DIST.keys()
@@ -458,6 +456,7 @@ def main():
     parser.add_argument('-s', "--smt", default="All", help="SMT effectiveness")
     parser.add_argument('-u', "--util", default="All", help="per-task util")
     parser.add_argument('-r', "--crit", default="All", help="criticality util")
+    parser.add_argument('-l', "limitThreadUtil", default=Constants.MAX_THREADED_UTIL, type=float, help="Max threaded util")
     args = parser.parse_args()
     numCores = args.processors
     corePerComplex = args.corePerComplex
@@ -465,6 +464,9 @@ def main():
     smtDist = args.smt
     critDist=args.crit
     taskUtilDist=args.util
+    # this is ugly and hacky, but having the limit as a scenario parameter causes it's own problems.
+    # downside is one command can only use one value for the util limit
+    Constants.MAX_THREADED_UTIL = args.limitThreadUtil
     # because it's not implemented
     Constants.RUN_FINE = False
 
