@@ -492,7 +492,8 @@ def main():
     Constants.RUN_FINE = False
     '''
     
-    startUtil = numCores / 2
+    # startUtil = numCores / 2
+    startUtil = 0.5
     endUtil = 2 * numCores
 
     scenarios = generateScenario(critDist, periodDist, taskUtilDist, smtDist)
