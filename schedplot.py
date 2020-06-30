@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-import sys
+#import sys
 import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from csv import DictReader
-from copy import copy
+#from copy import copy
 from collections import defaultdict
 
 # For main plots
@@ -15,7 +15,9 @@ from collections import defaultdict
 #legendnames= ['UEDF', r'Prior MC$^2$', 'Man. IPC', 'Man. IO', 'Both']
 LINE_STYLE = ['k-.',    'b--o',     'c:s']#,  'r--o',          'r--^',          'b--v',          'k:o',          'k:^',          'c:v'] # , 'r--s'   , 'r:s' ,    ]
 schednames = ['NO_THREAD', 'THREAD_COURSE',    'THREAD_FINE']#,  'IO',           'IOHIGH',       'IOLOW',        'Both',         'BothHIGH',     'BothLOW']
-legendnames= ['NO', 'CORE', 'THREAD']#['R|R',    'C|C',      'O|C',  'C|C+A/B-ALL',  'C|C+A/B-LP',   'C|C+A/B-SP',   'O|C+A/B-ALL',  'O|C+A/B-LP',   'O|C+A/B-SP']
+#legendnames= ['NO', 'CORE', 'THREAD']#['R|R',    'C|C',      'O|C',  'C|C+A/B-ALL',  'C|C+A/B-LP',   'C|C+A/B-SP',   'O|C+A/B-ALL',  'O|C+A/B-LP',   'O|C+A/B-SP']
+legendnames = ["Solo", "Threaded"]
+
 
 # For main plots
 #LINE_STYLE = ['k-.', 'b--o' ]#    , 'r--s'   , 'r:s'    ]
@@ -44,7 +46,10 @@ def main():
         d = DictReader(open(datadir + filename, 'r'))
         data = defaultdict(list)
         for row in d:
-            for key, value in row.iteritems():
+            #for key, value in row.iteritems():
+            for key, value in row.items():
+                if key == 'THREAD_FINE':
+                    continue
                 if key in schednames + ["SYS_UTIL"]:
                     data[key].append(float(value))
                 else:
@@ -63,7 +68,7 @@ def main():
         plt.ylabel("Schedulability")
         plt.xlabel("System Utilization")
         lw = 4.0
-	schedset = []
+	#schedset = []
 	#if 'no_cam' in filename and 'net_none' in filename:
 	#    LINE_STYLE = ['k-.', 'b--o']#, 'b:o'   , 'c:^'    , 'r--s'   , 'r:s'    ]
 	#    schednames = ['EDF', 'Managed']
@@ -74,6 +79,8 @@ def main():
 	#    legendnames= ['UEDF', 'OS-Isolated', r'Prior MC$^2$']
     
         for ndx, sched in enumerate(schednames):
+            if sched == "THREAD_FINE":
+                continue
             plt.plot(npdata["SYS_UTIL"], npdata[sched], LINE_STYLE[ndx], label=legendnames[ndx], linewidth=lw, markersize = lw*3)
             plt.xlim(max([0, int(min(npdata["SYS_UTIL"]))-1]),int(max(npdata["SYS_UTIL"])+1))
             lw -= 0.3
