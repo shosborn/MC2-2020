@@ -167,7 +167,8 @@ class Overheads:
 
             for costLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
                 maxWss = max(tasks[pair[0]-startingTaskID].getWss(), tasks[pair[1]-startingTaskID].getWss())
-                inflation = (numSlices - 1) * min(maxWss,cachePair) * Constants.CPMD_PER_UNIT[costLevel]
+                #inflation = (numSlices - 1) * min(maxWss,cachePair) * Constants.CPMD_PER_UNIT[costLevel]
+                inflation = (numSlices - 1) * cachePair * Constants.CPMD_PER_UNIT[costLevel] #pessimistic inflation to maintain convex nature for ilp
                 cpmd[(pair,costLevel)] = inflation
 
         return cpmd
@@ -205,7 +206,8 @@ class Overheads:
 
         cpmd = {}
         for costLevel in (Constants.LEVEL_B,Constants.LEVEL_C):
-            inflation = min(maxWSS, effectiveCacheThread) * Constants.CPMD_PER_UNIT[costLevel]
+            #inflation = min(maxWSS, effectiveCacheThread) * Constants.CPMD_PER_UNIT[costLevel]
+            inflation = effectiveCacheThread * Constants.CPMD_PER_UNIT[costLevel] #pessimistic inflation to maintain convex nature for ilp
             cpmd[costLevel] = inflation
 
         return cpmd
@@ -228,7 +230,8 @@ class Overheads:
 
         #works for core-level cache isolation too
         cpmd = {}
-        inflation = min(maxWSS, cacheSize) * Constants.CPMD_PER_UNIT[Constants.LEVEL_C]
+        #inflation = min(maxWSS, cacheSize) * Constants.CPMD_PER_UNIT[Constants.LEVEL_C]
+        inflation = cacheSize * Constants.CPMD_PER_UNIT[Constants.LEVEL_C] #pessimistic inflation to maintain convex nature for ilp
         cpmd[Constants.LEVEL_C] = inflation
 
         return cpmd
