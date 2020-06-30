@@ -57,7 +57,7 @@ class Constants:
 
     SIZE_OF_HALF_WAYS = 0.5 #1 half way = 0.5 MB
 
-    CPMD_PER_UNIT: Dict[int, float] = {LEVEL_A: 0, LEVEL_B: 10, LEVEL_C: 8} #constant b^l from miccaiah et al RTSS'15, 0 for level-A (no CPMD for cyclic executive)
+    CPMD_PER_UNIT: Dict[int, float] = {LEVEL_A: 0, LEVEL_B: 292, LEVEL_C: 238} # Microseconds. Constant b^l from Miccaiah et al RTSS'15. 0 for level-A (no CPMD for cyclic executive)
 
     CPI_PER_UNIT = [0, 0, 0]#assumed to be small
 
