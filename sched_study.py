@@ -39,9 +39,9 @@ def generateScenario(crit, period, taskUtil, smt):
                  #'periodDist':Constants.PERIOD_DIST.keys(), 
                  #'taskUtilDist':Constants.TASK_UTIL.keys(),
                  'possCacheSensitivity':Constants.CACHE_SENSITIVITY.keys(),
-                 'wssDist':Constants.WSS_DIST.keys(),
+                 'wssDist':Constants.WSS_DIST.keys()
                  #'smtEffectDist':Constants.SMT_EFFECTIVENESS_DIST.keys(),
-                 'critSensitivity':Constants.CRIT_SENSITIVITY.keys()
+                 #'critSensitivity':Constants.CRIT_SENSITIVITY.keys()
                  }
     if crit=="All":
         paramList['critUtilDist']=Constants.CRITICALITY_UTIL_DIST.keys()
@@ -104,7 +104,7 @@ def generateTaskSystem(scenario, sysUtil):
         critLevel = mySystem.levels[level]
         if Constants.TIMEKEEPING:
             generate_start = time.clock()
-        newTasks = critLevel.createTasks(scenario, targetUtil, startingID)
+        newTasks = critLevel.createTasks(scenario, targetUtil, startingID, sysUtil)
         if Constants.VERBOSE:
             print('COUNT,Crit_Level,%d,%d' % (newTasks, level))
         startingID += newTasks

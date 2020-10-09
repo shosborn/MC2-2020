@@ -39,7 +39,7 @@ def _fitTask(task: Task, goal_util_A: float) -> None:
     task.deflate(deflation_factor)
 
 class CritLevelSystem:
-    def __init__(self, level: int, assumedCache):
+    def __init__(self, level: int, assumedCache: int):
         self.level: int = level
         #self.firstInSystem = numHigherCritTasks + 1
 
@@ -65,7 +65,7 @@ class CritLevelSystem:
         assert(0 <= task_idx < len(self.tasksThisLevel))
         return self.tasksThisLevel[task_idx]
 
-    def _createTask(self, task_id: int, scenario: Dict[str, str], startingID: int) -> Task:
+    def _createTask(self, task_id: int, scenario: Dict[str, str], startingID: int, totUtil: float) -> Task:
         """
         We create a task that has information on how it runs individually, but not yet as a thread
         :param task_id:
@@ -100,20 +100,20 @@ class CritLevelSystem:
         cache_sense = distributions.sample_choice(cache_sense_dist)
 
         #choose how our cost scales at lower levels
-        crit_sense_dist_by_crit = Constants.CRIT_SENSITIVITY[scenario['critSensitivity']]
-        crit_scale_dict = {}
+        #crit_sense_dist_by_crit = Constants.CRIT_SENSITIVITY[scenario['critSensitivity']]
+        #crit_scale_dict = {}
         #Lowering criticality level should not increase costs. Prevent this by reducing to how cost decreased
         #   with respect to the previous criticality level
-        prev_scale = 1.0
-        for level in range(Constants.LEVEL_A, Constants.MAX_LEVEL):
-            assert(0 < prev_scale <= 1.0)
-            crit_sense_mean, crit_sense_std, crit_sense_min = crit_sense_dist_by_crit[level]
-            tentative_scaling = max([crit_sense_min, distributions.sample_normal_dist(crit_sense_mean, crit_sense_std)])
-            crit_scale_dict[level] = min([prev_scale, tentative_scaling])
-            prev_scale = min([prev_scale, tentative_scaling])
+        #prev_scale = 1.0
+        #for level in range(Constants.LEVEL_A, Constants.MAX_LEVEL):
+        #    assert(0 < prev_scale <= 1.0)
+            #crit_sense_mean, crit_sense_std, crit_sense_min = crit_sense_dist_by_crit[level]
+        #    tentative_scaling = max([crit_sense_min, distributions.sample_normal_dist(crit_sense_mean, crit_sense_std)])
+        #    crit_scale_dict[level] = min([prev_scale, tentative_scaling])
+        #    prev_scale = min([prev_scale, tentative_scaling])
 
         #return a basic task. Still need to produce any threading related data
-        return Task(task_id, self.level, baseCost, period, relDeadline, wss, cache_sense, crit_scale_dict, startingID)
+        return Task(task_id, self.level, baseCost, period, relDeadline, wss, cache_sense, startingID, totUtil)
 
     def _generate_smt_costs_AB(self, smt_friendliness_mean: float,
                                smt_friendliness_std: float, smt_unfriendliness_chance: float) -> None:
@@ -177,7 +177,7 @@ class CritLevelSystem:
             self._generate_smt_costs_C(smt_mean, smt_std)
         return
 
-    def createTasks(self, scenario: Dict[str,str], targetUtil: float, startingID: int) -> int:
+    def createTasks(self, scenario: Dict[str,str], targetUtil: float, startingID: int, totUtil: float) -> int:
 
         # Change wss to be from 0 to 32 half-ways
         # expected value of wss to be on average 2 MB (each way is 1 MB)
@@ -196,7 +196,7 @@ class CritLevelSystem:
         while thisLevelUtil < targetUtil:
             #beware of infinite loops
             assert(taskID - startingID < _MAX_TASKS)
-            newTask = self._createTask(taskID, scenario, startingID)
+            newTask = self._createTask(taskID, scenario, startingID, totUtil)
             taskID += 1
             newTask_A_util = _task_A_util(newTask)
             if thisLevelUtil + newTask_A_util >= targetUtil:
