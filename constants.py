@@ -116,13 +116,14 @@ class Constants:
     '''
     # As used in the RTSS'20 and RTAS'21 submissions
     MAX_THREADED_UTIL = 0.5
-    
+
     # These are normal distributions which when sampled produce a fractional multiplier to a
     # task's Level-A cost which yields the Level-B or Level-C cost when applied. Level-A should
     # always have a distribution centered at 1 with standard deviation 0.
     # Note that if the sampled multiplier is greater than 1, it's automatically set to 1 (so large
     # standard deviations are safe).
     # Input is (mean, stdev, min).
+    # Disabled for the RTAS'21 paper as it is excessively optimistic at Level-A. -Joshua
     #CRIT_SENSITIVITY: Dict[str, Dict[int,Tuple[float,float,float]]] = {
     #    'Default_Crit_Sensitivity': {LEVEL_A: (1.0, 0.0, 0.0), LEVEL_B: (0.74, 0.24, 0.37), LEVEL_C: (0.63, 0.25, 0.13)} # TACLe-based: 10M vs 100k vs 1k sample maximum differences
     #}
@@ -132,9 +133,9 @@ class Constants:
     # from RTSS '15
     CRITICALITY_UTIL_DIST: Dict[str, Dict[int,Tuple[float,float]]] = {
         'C-Heavy':      {LEVEL_A: LIGHT_RATIO, LEVEL_B: LIGHT_RATIO, LEVEL_C: HEAVY_RATIO},
-       # 'C-All':      {LEVEL_A: (0.0, 0.0), LEVEL_B: (0.0,0.0), LEVEL_C: (1.0,1.0)},
+       # 'C-All':        {LEVEL_A: (0.0, 0.0), LEVEL_B: (0.0,0.0), LEVEL_C: (1.0,1.0)},
        # 'C-None':       {LEVEL_A: (0.4,0.6), LEVEL_B: (0.4,0.6), LEVEL_C: (0.0,0.0)},
-       #'B-Heavy':      {LEVEL_A: LOW_MODERATE_RATIO, LEVEL_B: HEAVY_RATIO, LEVEL_C: LIGHT_RATIO},
+       # 'B-Heavy':      {LEVEL_A: LOW_MODERATE_RATIO, LEVEL_B: HEAVY_RATIO, LEVEL_C: LIGHT_RATIO},
         'AB-Moderate':  {LEVEL_A: HIGH_MODERATE_RATIO, LEVEL_B: HIGH_MODERATE_RATIO, LEVEL_C: LIGHT_RATIO},
     }
 
@@ -154,24 +155,25 @@ class Constants:
         'Heavy_Util':    {LEVEL_A: (0.1, 0.2), LEVEL_B: (0.2, 0.4), LEVEL_C: (0.4, 0.6)},
         'Moderate_Util': {LEVEL_A: (0.02, 0.1), LEVEL_B: (0.05, 0.2), LEVEL_C: (0.1, 0.4)},
         'Light_Util':    {LEVEL_A: (0.001, 0.03), LEVEL_B: (0.001, 0.05), LEVEL_C: (0.001, 0.1)}
-        
     }
-    
+
     # Informed by benchmarks
     CACHE_SENSITIVITY: Dict[str, Tuple[float,float,float]] = {
          'Default_Sensitivity':   (1.16, 2.95, 15.68) # DIS-based; pre-rewrite and reparameterization of matrix/neighborhood stressmarks
     }
-    
+
     # units are MB
     # Normal distribution with tuple format: (mean, stdev)
     # Negative values are truncated to 0
     WSS_DIST: Dict[str, Tuple[float,float]] = {
         'Default_WSS': (2.0, 2.0) # From MC^2 meeting on 06/24
     }
-    
+
     # Tuples are (mean, standard deviation, 0) for Level-C and (mean, stdev, unfriendliness chance)
     # for Level-A and Level-B. The "unfriendliness chance" is the probability described on page 7,
     # paragraph 2 of Sims's RTCSA'20 paper - set it to 0 to disable.
+    # Oct 25 2020, Note: Unfriendliness chance is disabled because we just naturally let the normal
+    #                    distribution generate values >2 -Joshua
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
         'DIS_SMTv2':   {LEVEL_A: (.46, .12, .68), LEVEL_B: (.46, .12, .68), LEVEL_C: (1.28, .19, 0)}, # A/B: DIS-based; 10x diff, <=0, >1 removed and >1 modeled. C: DIS-based w/out coloring
         'TACLE_SMTv2': {LEVEL_A: (.56, .23, .14), LEVEL_B: (.56, .23, .14), LEVEL_C: (1.56, .46, 0)}, # A/B: TACLe-based; 10x diff, <=0, >1 removed and >1 modeled. C: TACLe-based w/out coloring
@@ -189,7 +191,7 @@ class Constants:
         'BC-Moderate':  [LIGHT_RATIO, MODERATE_RATIO, MODERATE_RATIO],
         'ALL-Moderate': [MODERATE_RATIO, MODERATE_RATIO, MODERATE_RATIO],
     }
-'''
+    '''
 
 
     DEBUG = False
