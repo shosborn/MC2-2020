@@ -463,7 +463,7 @@ class Overheads:
                 #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
                 inflatedUtils[(pair,costLevel)] = thisPairCost/thisPairPeriod
                 #sanity checks
-                assert(thisPairCost/thisPairPeriod > 0)
+                #assert(thisPairCost/thisPairPeriod > 0)
                 #if Constants.DEBUG:
                 #    print("pair: ",pair, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
