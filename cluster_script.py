@@ -47,26 +47,21 @@ critUtilList = Constants.CRITICALITY_UTIL_DIST.keys()
 taskUtilList = Constants.TASK_UTIL.keys()
 smtUtilList = Constants.SMT_EFFECTIVENESS_DIST.keys()
 coreCounts = ["8", "16"]
-maxThreadUtils = ["0.5", "0.75", "1.0"]
 
 # make sure critUtilList is ordered by priority
 for m in coreCounts:
-    for u in maxThreadUtils:
-        for t in taskUtilList:
-            for c in critUtilList:
-                for s in smtUtilList:
-                
-                    arg = " --processors "
-                    arg += m
-                    arg += " --limitThreadUtil "
-                    arg += u
-                    arg += " --crit "
-                    arg += c
-                    arg += " --util "
-                    arg += t
-                    arg += " --smt "
-                    arg += s
-                    arg += "\""
-                    fullCommand = baseCommand + arg
-                    print(fullCommand)
-                    print()
+    for t in taskUtilList:
+        for c in critUtilList:
+            for s in smtUtilList:
+                arg = " --processors "
+                arg += m
+                arg += " --crit "
+                arg += c
+                arg += " --util "
+                arg += t
+                arg += " --smt "
+                arg += s
+                arg += "\""
+                fullCommand = baseCommand + arg
+                print(fullCommand)
+                print()

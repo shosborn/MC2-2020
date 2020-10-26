@@ -114,7 +114,8 @@ class Constants:
         'Max_Threaded_Util_0.5': 0.5
     }
     '''
-    MAX_THREADED_UTIL = 1.0
+    # As used in the RTSS'20 and RTAS'21 submissions
+    MAX_THREADED_UTIL = 0.5
     
     # These are normal distributions which when sampled produce a fractional multiplier to a
     # task's Level-A cost which yields the Level-B or Level-C cost when applied. Level-A should
