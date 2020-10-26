@@ -178,6 +178,7 @@ class Constants:
         'TACLE_SMTv2': {LEVEL_A: (.40, .21, .15), LEVEL_B: (.40, .21, .15), LEVEL_C: (1.79, .32, 0)}, # A/B: SD-VBS-based; 10x diff, <=0, >1 removed and >1 modeled. C: TACLe-based w/out coloring
         'SDVBS_SMTv2': {LEVEL_A: (.52, .17, .05), LEVEL_B: (.52, .17, .05), LEVEL_C: (1.72, .13, 0)}, # A/B: TACLe-based; 10x diff, <=0, >1 removed and >1 modeled. C: SD-VBS-based w/out coloring
         'Prior_SMTv2': {LEVEL_A: (.60, .07, .20), LEVEL_B: (.60, .07, .20), LEVEL_C: (1.80, .10, 0)}, # A/B/C: From prior work
+        'TACLE_v_SDVBS_SMTv2': {LEVEL_A: (.40, .21, .15), LEVEL_B: (.40, .21, .15), LEVEL_C: (1.72, .13, 0)}, # A/B: From TACLe (above). C: From SD-VBS (above)
         # 'None':     {LEVEL_A: (2.0, 0.0, 1.0), LEVEL_B: (2.0, 0.0, 1.0), LEVEL_C: (3.0, 0.0, 0)}
     }
 
