@@ -73,15 +73,17 @@ class Overheads:
             if start > end:
                 break
             mid = int((start+end)/2)
+        #print(mid)
+
         if numTasks[mid] == taskCount:
             return overheadData.iloc[mid]
         if numTasks[mid] > taskCount:
             return overheadData.iloc[mid-1] + (overheadData.iloc[mid]-overheadData.iloc[mid-1])/(numTasks[mid]-numTasks[mid-1])*\
-                   (taskCount-overheadData.iloc[mid-1])
+                   (taskCount-numTasks[mid-1])
         if numTasks[mid] < taskCount:
             return overheadData.iloc[mid] + (overheadData.iloc[mid+1] - overheadData.iloc[mid]) / (
                         numTasks[mid+1] - numTasks[mid]) * \
-                   (taskCount - overheadData.iloc[mid])
+                   (taskCount - numTasks[mid])
 
 
     def linearInterpolation(self,taskCount,costLevel,overhead):
@@ -102,7 +104,7 @@ class Overheads:
         if taskCount > numTasks[-1]:
             mid = int(len(numTasks)/2)
             return overheadData.iloc[mid] + (overheadData.iloc[-1]-overheadData.iloc[mid])/(numTasks[-1]-numTasks[mid])*\
-                   (taskCount-overheadData.iloc[mid])
+                   (taskCount-numTasks[mid])
         start = 0
         end = len(numTasks)-1
         mid = int(len(numTasks)/2)
@@ -118,11 +120,11 @@ class Overheads:
             return overheadData.iloc[mid]
         if numTasks[mid] > taskCount:
             return overheadData.iloc[mid-1] + (overheadData.iloc[mid]-overheadData.iloc[mid-1])/(numTasks[mid]-numTasks[mid-1])*\
-                   (taskCount-overheadData.iloc[mid-1])
+                   (taskCount-numTasks[mid-1])
         if numTasks[mid] < taskCount:
             return overheadData.iloc[mid] + (overheadData.iloc[mid+1] - overheadData.iloc[mid]) / (
                         numTasks[mid+1] - numTasks[mid]) * \
-                   (taskCount - overheadData.iloc[mid])
+                   (taskCount - numTasks[mid])
 
     def getOverheadValue(self,taskCount,costLevel,overhead):
         """
@@ -343,6 +345,7 @@ class Overheads:
         :param allCriticalityLevels: dictionary of all criticality levels
         :return:
         '''
+        #print(taskCount)
         for oheadName in Constants.OVERHEAD_TYPES:
             oHeadCode = Constants.OVERHEAD_TYPES[oheadName]
             for costLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
@@ -393,7 +396,7 @@ class Overheads:
             # The overhead of SMT at Level-A and Level-B is just the time that
             # we have to wait for our sibling thread to receive our scheduling
             # decision.
-            smtOverhead = ipi;
+            smtOverhead = ipi
 
             #if Constants.DEBUG:
             #    print("cost level: ",costLevel)
@@ -463,7 +466,7 @@ class Overheads:
                 #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
                 inflatedUtils[(pair,costLevel)] = thisPairCost/thisPairPeriod
                 #sanity checks
-                #assert(thisPairCost/thisPairPeriod > 0)
+                assert(thisPairCost/thisPairPeriod > 0)
                 #if Constants.DEBUG:
                 #    print("pair: ",pair, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
@@ -560,6 +563,7 @@ class Overheads:
 
                 #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
                 inflatedUtils[(task.ID,costLevel)] = thisPairCost/thisPairPeriod
+                #assert(thisPairCost/thisPairPeriod > 0)
                 #if Constants.DEBUG:
                 #    print("task: ",task.ID, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
@@ -600,7 +604,7 @@ class Overheads:
 def main():
     overHeads = Overheads()
     overHeads.loadOverheadData('oheads')
-    value = overHeads.montonicInterpolation(75,0,'CXS')
+    value = overHeads.montonicInterpolation(12,0,'RELEASE-LATENCY')
     print("Level-A CXS @ 75 w/ Monotonic Interpolation = " + str(value))
     value = overHeads.linearInterpolation(75,0,'CXS')
     print("Level-A CXS @ 75 w/ Linear Interpolation = " + str(value))
