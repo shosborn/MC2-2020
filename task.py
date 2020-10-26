@@ -68,7 +68,7 @@ class Task:
         return distributions.sample_unif_distribution((tskmin,tskmax))
 
     def _scale_B_to_C(self, total_mc2_util: float) -> None:
-        wcet_to_avg = self._avg_percent(total_mc2_util - self.period * self._per_cache_crit_costs[Constants.CACHE_SIZE_L3, Constants.LEVEL_A])
+        wcet_to_avg = self._avg_percent(total_mc2_util - self._per_cache_crit_costs[Constants.CACHE_SIZE_L3, Constants.LEVEL_A]/self.period)
         if self.level is Constants.LEVEL_A or self.level is Constants.LEVEL_B:
             for half_ways in range(Constants.MAX_HALF_WAYS+1):
                 self._per_cache_crit_costs[half_ways, Constants.LEVEL_C] = \
