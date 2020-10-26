@@ -44,13 +44,12 @@ class Constants:
     '''
 
     OVERHEAD_TYPES = {
-                     'releaseLatency':'RLA', #delay until ISR starts execution
-                     'ipiLatency':'IPI', #delay until ipi is received
-                     'scheduling':'SCH', #process selection
+                     'releaseLatency':'RELEASE-LATENCY', #delay until ISR starts execution
+                     'ipiLatency':'SEND-RESCHED', #delay until ipi is received
+                     'scheduling':'SCHED', #process selection
                      'contextSwitch':'CXS', #process switch
-                     'release':'RQA', #execution of release ISR
-                     'tick':'TCK', #execution of timer tick ISR
-                     #'smtOverhead':'SMT'
+                     'release':'RELEASE', #execution of release ISR
+                     'tick':'SCHED', #execution of timer tick ISR
                      }
 
     QUANTUM_LENGTH = 1000

@@ -39,7 +39,7 @@ class Overheads:
             for column in range(overheadData[critLevelValue].shape[1]):
                 maxValue = -1
                 for row in range(overheadData[critLevelValue].shape[0]):
-                    maxValue = max(maxValue,overheadData[critLevelValue].iloc[row,column])
+                    maxValue = max(maxValue, overheadData[critLevelValue].iloc[row,column])
                     overheadData[critLevelValue].iloc[row, column] = maxValue #make monotonic
             #if critLevelValue == Constants.LEVEL_A:
             #    print(overheadData[critLevelValue])
@@ -601,6 +601,9 @@ def main():
     overHeads = Overheads()
     overHeads.loadOverheadData('oheads')
     value = overHeads.montonicInterpolation(75,0,'CXS')
+    print("Level-A CXS @ 75 w/ Monotonic Interpolation = " + str(value))
+    value = overHeads.linearInterpolation(75,0,'CXS')
+    print("Level-A CXS @ 75 w/ Linear Interpolation = " + str(value))
     '''task1 = Task(1,1,5,5,2)
     task2 = Task(2,1,5,5,3)
     task3 = Task(3,1,5,5,4)
