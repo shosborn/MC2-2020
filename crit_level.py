@@ -614,6 +614,45 @@ class CritLevelSystem:
                 cluster.clusterID = clus_id
                 clus_id += 1
 
+    def get_pair_cost_AB(self, pair, costLevel,cacheSize):
+        thisPairPeriod = self.getTask(pair[0]).period
+        if pair[0] != pair[1]:
+            thisPairUtil = get_pair_util(
+                self.getTask(pair[0]),
+                self.getTask(pair[1]),
+                costLevel,
+                cacheSize[0],
+                cacheSize[1]
+            )
+        else:
+            thisPairUtil = get_pair_util(
+                self.getTask(pair[0]),
+                self.getTask(pair[1]),
+                costLevel,
+                cacheSize[0],
+                cacheSize[1]
+            )
+
+            # tasksCritLevel[pair[0] - startingTaskID]._allUtil[(pair[1], costLevel, min(cacheSize) * 2)]
+        thisPairCost = thisPairUtil * thisPairPeriod
+        return thisPairCost
+
+    def get_task_cost_C(self,task,clusterTasks,threaded,cacheSize):
+        thisPairPeriod = task.period
+        if threaded:
+            thisPairUtil = 0
+            for otherTask in clusterTasks:
+                if task != otherTask:
+                    thisPairUtil = max([
+                        thisPairUtil,
+                        get_pair_util(task, otherTask, Constants.LEVEL_C, cacheSize, cacheSize)
+                    ])
+                    # task._allUtil[(otherTask.ID, Constants.LEVEL_C, cacheSize)])
+            thisPairCost = thisPairUtil * thisPairPeriod
+        else:
+            thisPairCost = get_pair_util(task, task, Constants.LEVEL_C, cacheSize, cacheSize) * task.period
+        return thisPairCost
+
     def printCoreAssignment(self,coreList):
         #critLevel = self.level
         startingTaskID = self.tasksThisLevel[0].ID

@@ -27,7 +27,7 @@ def title(scenario: Dict[str,str]) -> str:
                       scenario['possCacheSensitivity'],
                       scenario['wssDist'],
                       scenario['smtEffectDist'],
-                      scenario['critSensitivity'],
+                      #scenario['critSensitivity'],
                       str(Constants.MAX_THREADED_UTIL),
                       str(Constants.NUM_CORES)
     ])

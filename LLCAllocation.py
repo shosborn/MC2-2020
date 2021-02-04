@@ -896,7 +896,8 @@ class LLCAllocation:
         coreIDtoIndex, clusterIDtoIndex = self.createIDtoIndexMap(complex)
 
         UData, hData, HData = self.initData((corePerComplex, maxWays+1), (len(complex.clusterList), maxWays + 1))
-
+        #print(len(taskSystem.levelA.tasksThisLevel) + len(taskSystem.levelB.tasksThisLevel) + len(
+        #    taskSystem.levelC.tasksThisLevel))
         for numWays in range(0, maxWays + 1):
             for core in complex.coreList:
                 for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
@@ -990,9 +991,16 @@ class LLCAllocation:
 
         #constraints set 2
         for numWays in range(0,maxWays):
+            #print(numWays)
             for core in complex.coreList:
 
                 for taskLevel in (Constants.LEVEL_A, Constants.LEVEL_B):
+                    #print(core.coreID,len(core.pairsOnCore[taskLevel]))
+                    cpmdLevelAB = overheads.CPMDInflationLevelAB(core=core,
+                                                                 allCriticalityLevels=taskSystem.levels,
+                                                                 cacheSize=[numWays, numWays],
+                                                                 dedicatedIRQ=dedicatedIRQ,
+                                                                 dedicatedIRQCore=dedicatedIRQCore)
                     for costLevel in range(taskLevel, Constants.LEVEL_C+1):
                         x1 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], numWays]
                         x2 = UData[(taskLevel, costLevel)][coreIDtoIndex[core.coreID], numWays+1]
@@ -1004,15 +1012,17 @@ class LLCAllocation:
                             else:
                                 effectiveDenom = overheads.denom[True][costLevel]
                             # unit is half way
-                            I_A_term = numWays * (Constants.CPMD_PER_UNIT[costLevel] * 2) / (effectiveDenom * core.minLevelAPeriod)
+                            I_A_term = cpmdLevelAB[costLevel]#numWays * (Constants.CPMD_PER_UNIT[costLevel] * 2) / (effectiveDenom * core.minLevelAPeriod)
+
                             schedCtxABterm = (overheads.overheadValue['scheduling'][costLevel]+overheads.overheadValue['contextSwitch'][costLevel]) / (
                                                     effectiveDenom * core.minLevelAPeriod)
                             solver.addConstr(U[(taskLevel, costLevel, core.coreID)] - W[coreIDtoIndex[core.coreID]] * (x2 - x1)
                                                 >= x1 - numWays * (x2 - x1) + I_A_term + schedCtxABterm)
+                            #print(I_A_term, schedCtxABterm, "extra")
                         else:
                             solver.addConstr(U[(taskLevel,costLevel,core.coreID)] - W[coreIDtoIndex[core.coreID]] * (x2 - x1)
                                                 >= x1 - numWays * (x2 - x1))
-
+                        #print(costLevel, x1, x2)
             for cluster in complex.clusterList:
                 x1 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID],numWays]
                 x2 = UData[(Constants.LEVEL_C,Constants.LEVEL_C)][clusterIDtoIndex[cluster.clusterID],numWays+1]

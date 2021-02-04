@@ -39,7 +39,7 @@ class Overheads:
             for column in range(overheadData[critLevelValue].shape[1]):
                 maxValue = -1
                 for row in range(overheadData[critLevelValue].shape[0]):
-                    maxValue = max(maxValue, overheadData[critLevelValue].iloc[row,column])
+                    maxValue = max(maxValue,overheadData[critLevelValue].iloc[row,column])
                     overheadData[critLevelValue].iloc[row, column] = maxValue #make monotonic
             #if critLevelValue == Constants.LEVEL_A:
             #    print(overheadData[critLevelValue])
@@ -140,7 +140,7 @@ class Overheads:
         return self.montonicInterpolation(taskCount,costLevel,overhead)
 
 
-    def getCPMDLevelA(self,core,tasks,cacheSize):
+    def getCPMDLevelA(self,core,tasks,cacheSize,critLevel):
         '''
         calculate cache related preemption delay of level-A tasks of a core
         task-centric accounting of level-A tasks according to N.Kim et al real-time systems journal paper.
@@ -161,21 +161,50 @@ class Overheads:
         minPeriod = core.minLevelAPeriod
 
         for pair in pairs:
-            numSlices = tasks[pair[0]-startingTaskID].period / minPeriod  #n.kim et al journal paper page 27
+            numSlices = tasks[pair[0]-startingTaskID].period / minPeriod  #n.kim et al rtas -> journal paper page 27
 
-            # for paired task max cache size among two threads dominates
+             # for paired task max cache size among two threads dominates
             # solo task can use min cache size * 2 (since can see full way)
             cachePair = max(cacheSize) if pair[0]!=pair[1] else min(cacheSize) * 2
 
             for costLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
+                '''thisPairPeriod = tasks[pair[0] - startingTaskID].period
+                # paired task
+                if pair[0] != pair[1]:
+                    # cost is currently modeled based on total cache for the pair, not how they are divided
+                    # this is ok for core-level-isolation, but what about thread-level-isolation? 2+2 vs 3+1?
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+                    # tasksCritLevel[pair[0]-startingTaskID]._allUtil[(pair[1], costLevel, cacheSize[0] + cacheSize[1])]
+                # solo task
+                else:
+                    # We only get the min of our two half way sets here, but get_pair_util will sort this out for us
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+
+                    # tasksCritLevel[pair[0] - startingTaskID]._allUtil[(pair[1], costLevel, min(cacheSize) * 2)]
+
+                thisPairCost = thisPairUtil * thisPairPeriod'''
+                thisPairCost = critLevel.get_pair_cost_AB(pair,costLevel,cacheSize)
+
                 maxWss = max(tasks[pair[0]-startingTaskID].getWss(), tasks[pair[1]-startingTaskID].getWss())
                 #inflation = (numSlices - 1) * min(maxWss,cachePair) * Constants.CPMD_PER_UNIT[costLevel]
-                inflation = (numSlices - 1) * cachePair * Constants.CPMD_PER_UNIT[costLevel] #pessimistic inflation to maintain convex nature for ilp
+                inflation = (numSlices - 1) * min(cachePair * Constants.CPMD_PER_UNIT[costLevel], thisPairCost) #pessimistic inflation to maintain convex nature for ilp
                 cpmd[(pair,costLevel)] = inflation
 
         return cpmd
 
-    def getCPMDLevelB(self,core,tasks,cacheSize):
+    def getCPMDLevelB(self,core,tasks,cacheSize,critLevel):
         '''
         calculate preemption-centric cache related preemption and migration delay for a core.
         applies for preemption of level-B tasks by level-B tasks
@@ -208,13 +237,44 @@ class Overheads:
 
         cpmd = {}
         for costLevel in (Constants.LEVEL_B,Constants.LEVEL_C):
+            maxCost = 0
+            for pair in pairs:
+                '''thisPairPeriod = tasks[pair[0] - startingTaskID].period
+                # paired task
+                if pair[0] != pair[1]:
+                    # cost is currently modeled based on total cache for the pair, not how they are divided
+                    # this is ok for core-level-isolation, but what about thread-level-isolation? 2+2 vs 3+1?
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+                    # tasksCritLevel[pair[0]-startingTaskID]._allUtil[(pair[1], costLevel, cacheSize[0] + cacheSize[1])]
+                # solo task
+                else:
+                    # We only get the min of our two half way sets here, but get_pair_util will sort this out for us
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+
+                    # tasksCritLevel[pair[0] - startingTaskID]._allUtil[(pair[1], costLevel, min(cacheSize) * 2)]
+                #thisPairCost = thisPairUtil * thisPairPeriod'''
+                thisPairCost = critLevel.get_pair_cost_AB(pair,costLevel,cacheSize)
+                maxCost = max(maxCost, thisPairCost)
+
             #inflation = min(maxWSS, effectiveCacheThread) * Constants.CPMD_PER_UNIT[costLevel]
-            inflation = effectiveCacheThread * Constants.CPMD_PER_UNIT[costLevel] #pessimistic inflation to maintain convex nature for ilp
+            inflation = min(maxCost, effectiveCacheThread * Constants.CPMD_PER_UNIT[costLevel]) #pessimistic inflation to maintain convex nature for ilp
             cpmd[costLevel] = inflation
 
         return cpmd
 
-    def getCPMDLevelC(self,clusterTasks,cacheSize):
+    def getCPMDLevelC(self,clusterTasks,cacheSize,threaded,critLevel):
         """
         calculate preemption-centric cache related preemption and migration delay for a cluster.
         applies for preemption of level-C tasks by level-C tasks
@@ -229,11 +289,28 @@ class Overheads:
             return {Constants.LEVEL_C:0}
 
         maxWSS = max(task.getWss() for task in clusterTasks)
+        maxCost = 0
+        for task in clusterTasks:
+            '''thisPairPeriod = task.period
 
+            if threaded:
+                thisPairUtil = 0
+                for otherTask in clusterTasks:
+                    if task != otherTask:
+                        thisPairUtil = max([
+                            thisPairUtil,
+                            get_pair_util(task, otherTask, Constants.LEVEL_C, cacheSize, cacheSize)
+                        ])
+                        # task._allUtil[(otherTask.ID, Constants.LEVEL_C, cacheSize)])
+                thisPairCost = thisPairUtil * thisPairPeriod
+            else:
+                thisPairCost = get_pair_util(task, task, Constants.LEVEL_C, cacheSize, cacheSize) * task.period'''
+            thisPairCost = critLevel.get_task_cost_C(task, clusterTasks,threaded,cacheSize)
+            maxCost = max(maxCost, thisPairCost)
         #works for core-level cache isolation too
         cpmd = {}
         #inflation = min(maxWSS, cacheSize) * Constants.CPMD_PER_UNIT[Constants.LEVEL_C]
-        inflation = cacheSize * Constants.CPMD_PER_UNIT[Constants.LEVEL_C] #pessimistic inflation to maintain convex nature for ilp
+        inflation = min(maxCost, cacheSize * Constants.CPMD_PER_UNIT[Constants.LEVEL_C]) #pessimistic inflation to maintain convex nature for ilp
         cpmd[Constants.LEVEL_C] = inflation
 
         return cpmd
@@ -256,6 +333,7 @@ class Overheads:
 
         #otherwise
         tasks = allCriticalityLevels[Constants.LEVEL_B].tasksThisLevel #level-B tasks
+        critLevel = allCriticalityLevels[Constants.LEVEL_B]
         startingTaskID = tasks[0].ID #level-B tasks starting ID
         minPeriod = core.minLevelAPeriod
 
@@ -274,14 +352,47 @@ class Overheads:
 
         cpmdUtil = {}
         for costLevel in (Constants.LEVEL_B,Constants.LEVEL_C):
-            cpmd = min(maxWSS,effectiveCacheThread) * Constants.CPMD_PER_UNIT[costLevel]
+            maxCost = 0
+            for pair in levelBPairs:
+                '''thisPairPeriod = tasks[pair[0] - startingTaskID].period
+                # paired task
+                if pair[0] != pair[1]:
+                    # cost is currently modeled based on total cache for the pair, not how they are divided
+                    # this is ok for core-level-isolation, but what about thread-level-isolation? 2+2 vs 3+1?
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+                    # tasksCritLevel[pair[0]-startingTaskID]._allUtil[(pair[1], costLevel, cacheSize[0] + cacheSize[1])]
+                # solo task
+                else:
+                    # We only get the min of our two half way sets here, but get_pair_util will sort this out for us
+                    thisPairUtil = get_pair_util(
+                        critLevel.getTask(pair[0]),
+                        critLevel.getTask(pair[1]),
+                        costLevel,
+                        cacheSize[0],
+                        cacheSize[1]
+                    )
+
+                    # tasksCritLevel[pair[0] - startingTaskID]._allUtil[(pair[1], costLevel, min(cacheSize) * 2)]
+                thisPairCost = thisPairUtil * thisPairPeriod'''
+                thisPairCost=critLevel.get_pair_cost_AB(pair, costLevel,cacheSize)
+                maxCost = max(maxCost, thisPairCost)
+
+            #cpmd = min(maxWSS,effectiveCacheThread) * Constants.CPMD_PER_UNIT[costLevel]
+
+            cpmd =  min(effectiveCacheThread * Constants.CPMD_PER_UNIT[costLevel],maxCost)
 
             #for this extra term account for tick and release (need this? miccaiah's paper doesn't explicitely says)
             if dedicatedIRQ and core != dedicatedIRQCore:
                 #if dedicated interrupt but this core is not handling, then use don't need irq
                 denom, cpre = self.denom[False][costLevel], self.cPre[False][costLevel]
             else:
-                denom, cpre = self.denom[False][costLevel], self.cPre[False][costLevel]
+                denom, cpre = self.denom[True][costLevel], self.cPre[True][costLevel]
 
             cpmdUtil[costLevel] = (cpmd / denom) #the term I^B_{A,p} of rts journal 15 paper, page 28
 
@@ -345,7 +456,6 @@ class Overheads:
         :param allCriticalityLevels: dictionary of all criticality levels
         :return:
         '''
-        #print(taskCount)
         for oheadName in Constants.OVERHEAD_TYPES:
             oHeadCode = Constants.OVERHEAD_TYPES[oheadName]
             for costLevel in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
@@ -375,12 +485,12 @@ class Overheads:
 
         #cache delay for all pairs at this level of this core
         if taskLevel == Constants.LEVEL_A:
-            # for budgeted implementation of cyclic executing. ref. n.kim journal paper 2017
+            # for budgeted implementation of cyclic executive. ref. n.kim journal paper 2017
             cpmd = self.getCPMDLevelA(tasks=tasksCritLevel,
-                                       cacheSize=cacheSize, core=core)  # dictionary of (pair,costLevel)->cost
+                                       cacheSize=cacheSize, core=core,critLevel=critLevel)  # dictionary of (pair,costLevel)->cost
         else:
             cpmd = self.getCPMDLevelB(tasks=tasksCritLevel,
-                                        cacheSize=cacheSize,core=core)
+                                        cacheSize=cacheSize,core=core,critLevel=critLevel)
 
         #consider all criticality levels at or below for the tasks at critLevel
         for costLevel in range(taskLevel, Constants.LEVEL_C+1):
@@ -467,7 +577,7 @@ class Overheads:
                 inflatedUtils[(pair,costLevel)] = thisPairCost/thisPairPeriod
                 #sanity checks
                 assert(thisPairCost/thisPairPeriod > 0)
-                #if Constants.DEBUG:
+                #if True:#Constants.DEBUG:
                 #    print("pair: ",pair, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
 
@@ -495,10 +605,10 @@ class Overheads:
             tasks.extend(cluster.taskList)
             tasks.extend(additionalCluster.taskList)
             cpmd = self.getCPMDLevelC(clusterTasks=tasks,
-                                      cacheSize=cacheSize)
+                                      cacheSize=cacheSize,threaded = cluster.threaded,critLevel=allCritLevels[taskLevel])
         else:
             cpmd = self.getCPMDLevelC(clusterTasks=cluster.taskList,
-                                cacheSize=cacheSize)
+                                cacheSize=cacheSize,threaded = cluster.threaded,critLevel=allCritLevels[taskLevel])
 
         #consider all criticality levels at or below for the tasks at critLevel
         for costLevel in range(taskLevel, Constants.LEVEL_C+1):
@@ -563,7 +673,6 @@ class Overheads:
 
                 #inflatedPairs[critLevel][pair] = (thisPairPeriod,thisRelDeadline,thisPairCost)
                 inflatedUtils[(task.ID,costLevel)] = thisPairCost/thisPairPeriod
-                #assert(thisPairCost/thisPairPeriod > 0)
                 #if Constants.DEBUG:
                 #    print("task: ",task.ID, "exec level: ",costLevel, " orig cost: ", origCost, "inflated cost: ", thisPairCost)
         return inflatedUtils
@@ -604,10 +713,7 @@ class Overheads:
 def main():
     overHeads = Overheads()
     overHeads.loadOverheadData('oheads')
-    value = overHeads.montonicInterpolation(12,0,'RELEASE-LATENCY')
-    print("Level-A CXS @ 75 w/ Monotonic Interpolation = " + str(value))
-    value = overHeads.linearInterpolation(75,0,'CXS')
-    print("Level-A CXS @ 75 w/ Linear Interpolation = " + str(value))
+    value = overHeads.montonicInterpolation(75,0,'CXS')
     '''task1 = Task(1,1,5,5,2)
     task2 = Task(2,1,5,5,3)
     task3 = Task(3,1,5,5,4)
