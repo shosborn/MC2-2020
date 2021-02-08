@@ -143,7 +143,8 @@ class Overheads:
     def getCPMDLevelA(self,core,tasks,cacheSize,critLevel):
         '''
         calculate cache related preemption delay of level-A tasks of a core
-        task-centric accounting of level-A tasks according to N.Kim et al real-time systems journal paper.
+        task-centric accounting of level-A tasks according to N.Kim et al, Attacking the one-out-of-m Multicore Problem 
+        by Combining Hardware Management with Mixed Criticality Provisioning.  Real-Time Systems, Sept. 2017.
         Applies for cache related delays caused by preemption of a level-A task by another level-A task
         (Delay for preemption of a level-B task by a level-A task is accounted by CPMDInflationLevelAB)
         This is used when MC^2 use budgeted implementation for level-A tasks
@@ -402,6 +403,8 @@ class Overheads:
 
     def irqCosts(self, allCritLevels, considerIRQ=False):
         '''
+        Page and equation references are to disseration of Bjorn Brandenburg,
+        Scheduling and Locking in Multiprocessor Real-Time Operating Systems, UNC-CH, 2011.
         compute values to account irq overheads across 3 levels of execution
         :param allCritLevels: dictionary of all criticality level objects (since all tasks are needed here)
         :param considerIRQ: whether release interrupts to consider or not
