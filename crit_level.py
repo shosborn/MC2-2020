@@ -320,7 +320,7 @@ class CritLevelSystem:
                         #cache_sense = distributions.sample_choice(cache_sense_dist)
                         #print(dataset,name)
                     cache_sense = Constants.cacheSensitivityMapping[dataset][name]
-                    newTask = Task(taskID, self.level, baseCost, period, relDeadline, wss, cache_sense, startingID, targetUtil, baseAcet, case_study)
+                    newTask = Task(taskID, self.level, baseCost, period, relDeadline, wss, cache_sense, startingID, targetUtil, baseAcet)
                     newTask.name = name
                     self.tasksThisLevel.append(newTask)
                     taskID += 1

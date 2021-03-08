@@ -19,7 +19,7 @@ class Task:
     _EXP_TOLERANCE: float = 1e-6
 
     def __init__(self, ID: int, taskLevel: int, baseCost_ms: float, period_ms: int, relDeadline_ms: int,
-                 wss: float, cache_sense: float, levelFirstID: int, total_mc2_util: float):
+                 wss: float, cache_sense: float, levelFirstID: int, total_mc2_util: float, baseAcet: float = None):
         self.ID: int =ID
         self.period: int = 1000*period_ms
         self.relDeadline: int = 1000*relDeadline_ms
@@ -45,6 +45,7 @@ class Task:
         # half-ways of 512 KB each.
         self.wss = wss
         self.wss_in_half_ways = wss/Constants.SIZE_OF_HALF_WAYS
+        self.baseAcet = baseAcet
         #self._per_cache_crit_costs: Dict[int, Dict[int, float]] = {}
         self._per_cache_crit_costs: np.ndarray = np.empty([Constants.MAX_HALF_WAYS+1, Constants.MAX_LEVEL], dtype=float)
         self._generate_per_cache_crit_costs(cache_sense, total_mc2_util)
