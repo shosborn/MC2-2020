@@ -151,9 +151,65 @@ class CritLevelSystem:
                         task.set_smt_util_AB(sibling.ID, half_ways, level, half_ways, util)
         return
 
+    def _generate_smt_costs_AB_case_study(self, smt_friendliness_mean: float,
+                               smt_friendliness_std: float, smt_unfriendliness_chance: float, dataset: str) -> None:
+        for task in self.tasksThisLevel:
+            task.initialize_smt_array_AB(len(self.tasksThisLevel))
+            for sibling in self.tasksThisLevel:
+                if task is sibling:
+                    #SMT irrelevant here
+                    continue
+                #task.allUtil_AB[sibling.ID] = {}
+                #print(dataset, task.name, sibling.name)
+                smt_friendliness = Constants.SMT_EFFECTIVENESS_AB_CASE_STUDY[dataset][task.name][sibling.name]
+                smt_friendliness = max([smt_friendliness, 0.01])
+                '''if distributions.sample_bernoulli(smt_unfriendliness_chance):
+                    smt_friendliness = 10 #punish for SMT
+                else:
+                    smt_friendliness = distributions.sample_normal_dist(smt_friendliness_mean,smt_friendliness_std)
+                    smt_friendliness = max([smt_friendliness, 0.01])'''
+                #For threaded tasks, do to color separation, I am only entitled to at most half the half-ways
+                for half_ways in range(Constants.MAX_HALF_WAYS//2+1):
+                    #task.allUtil_AB[sibling.ID][half_ways] = {}
+                    for level in range(self.level, Constants.MAX_LEVEL):
+                        #task.allUtil_AB[sibling.ID][half_ways][level] = {}
+                        #The sibling task is limited to half the half-ways for the same reason
+                        #for half_ways_sibling in range(Constants.MAX_HALF_WAYS//2+1):
+                        #    #Use the individual costs and SMT friendliness to compute an SMT cost
+                        #    util = task.cost_per_cache_crit(half_ways, level) + \
+                        #           smt_friendliness*sibling.cost_per_cache_crit(half_ways_sibling, level)
+                        #    util /= task.period
+                        #    task.set_smt_util_AB(sibling.ID, half_ways, level, half_ways_sibling, util)
+                        #    #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] = \
+                        #    #    task.cost_per_cache_crit(half_ways, level) + \
+                        #    #    smt_friendliness* sibling.cost_per_cache_crit(half_ways_sibling, level)
+                        #    #task.allUtil_AB[sibling.ID,half_ways,level,half_ways_sibling] /= task.period
+                        #util = task.cost_per_cache_crit(half_ways, level) + \
+                        #    smt_friendliness*sibling.cost_per_cache_crit(half_ways, level)
+                        util = max(task.cost_per_cache_crit(half_ways, level),sibling.cost_per_cache_crit(half_ways, level)) + \
+                               smt_friendliness*min(task.cost_per_cache_crit(half_ways, level),sibling.cost_per_cache_crit(half_ways, level))
+                        util /= task.period
+                        task.set_smt_util_AB(sibling.ID, half_ways, level, half_ways, util)
+        return
+
+
     def _generate_smt_costs_C(self, smt_friendliness_mean: float, smt_friendliness_std: float) -> None:
         for task in self.tasksThisLevel:
             smt_friendliness = distributions.sample_normal_dist(smt_friendliness_mean, smt_friendliness_std)
+            #SMT should not decrease costs
+            smt_friendliness = max([smt_friendliness, 1.0])
+            for half_ways in range(Constants.MAX_HALF_WAYS+1):
+                #task.allUtil_C[half_ways] = {}
+                for level in range(self.level, Constants.MAX_LEVEL):
+                    util = task.cost_per_cache_crit(half_ways, level)*smt_friendliness/task.period
+                    task.set_smt_util_C(half_ways, level, util)
+                    #task.allUtil_C[(half_ways,level)] = \
+                    #    task.cost_per_cache_crit(half_ways, level)*smt_friendliness/task.period
+        return
+
+    def _generate_smt_costs_C_case_study(self, smt_friendliness_mean: float, smt_friendliness_std: float, dataset: str) -> None:
+        for task in self.tasksThisLevel:
+            smt_friendliness = Constants.SMT_EFFECTIVENESS_C_CASE_STUDY[dataset][task.name]
             #SMT should not decrease costs
             smt_friendliness = max([smt_friendliness, 1.0])
             for half_ways in range(Constants.MAX_HALF_WAYS+1):
@@ -175,6 +231,18 @@ class CritLevelSystem:
         else: # only remaining level is C
             smt_mean, smt_std, _unused_smt = smt_dist[Constants.LEVEL_C]
             self._generate_smt_costs_C(smt_mean, smt_std)
+        return
+
+    def _generate_smt_costs_case_study(self, smt_dist: Dict[int, Tuple[float,float,float]], dataset: str) -> None:
+        if self.level is Constants.LEVEL_A:
+            smt_mean, smt_std, smt_unfriendly = smt_dist[Constants.LEVEL_A]
+            self._generate_smt_costs_AB_case_study(smt_mean, smt_std, smt_unfriendly, dataset)
+        elif self.level is Constants.LEVEL_B:
+            smt_mean, smt_std, smt_unfriendly = smt_dist[Constants.LEVEL_B]
+            self._generate_smt_costs_AB_case_study(smt_mean, smt_std, smt_unfriendly, dataset)
+        else: # only remaining level is C
+            smt_mean, smt_std, _unused_smt = smt_dist[Constants.LEVEL_C]
+            self._generate_smt_costs_C_case_study(smt_mean, smt_std, dataset)
         return
 
     def createTasks(self, scenario: Dict[str,str], targetUtil: float, startingID: int, totUtil: float) -> int:
@@ -214,76 +282,55 @@ class CritLevelSystem:
         self._generate_smt_costs(smt_dist)
 
         return taskID - startingID
-                                
-    #broken. Not compatible with asymmetric cache allocations to threads
-    """
-    def loadSystem(self, filename):
-        '''
-        Create a set of tasks for the appropriate level by reading in csv file
-        '''
+
+    def loadSystem(self, filename, startingID, targetUtil, dataset):
+        taskID = startingID
+        util = 0
+        case_study = True
         header = True
-        tasksThisLevel = self.tasksThisLevel
         with open(filename, "r") as f:
             for line in f:
                 if header:
-                    # first two columns give task id and period; don't need for now
-                    headerArr = line.split(",")
-                    numTasks = 1
-                    cacheListAB = []
-                    cacheListC = []
-                    for column in range(2, len(headerArr)):
-                        keyList = headerArr[column].split("-")
-                        # to-do: the following codes are not required later. headerArr is used instead. Should they be removed?
-                        sibling = int(keyList[0])
-                        critLevel = keyList[1]
-                        cache = int(keyList[2])
-                        # update total number of cache
-                        numTasks = max(numTasks, sibling)
-                        # update possible cache allocations
-
-                        if (critLevel == "A" or critLevel == "B") and cache not in cacheListAB:
-                            cacheListAB.append(cache)
-                        if (critLevel == "C") and cache not in cacheListC:
-                            cacheListC.append(cache)
                     header = False
-                else:
-                    arr = line.split(",")
-                    taskID = int(arr[0])
-                    #print("taskID=", taskID)
-                    period = relDeadline = int(arr[1])
-                    newTask = Task(taskID, self.level, period, relDeadline, 1)
-                    newTask = Task(taskID, self.level, period*1000, relDeadline*1000, random.uniform(0.5,4)) # to test
-                    for column in range(2, len(arr)):
-                        # add util to newTask.allUtil with the appropriate key
-                        keyList = headerArr[column].split("-")
-                        sibling = int(keyList[0])
-                        critLevel = keyList[1]
-                        if critLevel == "A":
-                            critLevelInt = Constants.LEVEL_A
-                        elif critLevel == "B":
-                            critLevelInt = Constants.LEVEL_B
-                        else:
-                            critLevelInt = Constants.LEVEL_C
-                        
-                        cacheList = int(keyList[2])
-                        thisUtil = float(arr[column])
-                        newTask._allUtil_AB[(sibling, critLevelInt, cacheList)] = thisUtil
-                        newTask._allUtil_AB[(sibling, critLevelInt, cacheList)] = thisUtil * random.uniform(0.3, 0.7) #to test
-                    tasksThisLevel.append(newTask)
+                    continue
 
-        startingCacheSize = 3
-        endingCacheSize = Constants.MAX_HALF_WAYS
-        #some random data for higher cache sizes
-        for task in tasksThisLevel:
-            factor = random.uniform(0.1,0.5)
-            factor /= 100
-            for otherTask in tasksThisLevel:
-                for cacheSize in range(startingCacheSize,endingCacheSize+1):
-                    for level in range(self.level,Constants.LEVEL_C+1):
-                        task._allUtil_AB[(otherTask.ID, level, cacheSize)] = \
-                            task._allUtil_AB[(otherTask.ID, level, cacheSize - 1)] * math.exp(-cacheSize * factor)
+                arr = line.split(",")
+                #print(arr)
+                level = int(arr[3])
+                if level == self.level:
+                    name = arr[2]
+                    period = relDeadline = float(arr[5])
+                    baseCost = float(arr[4])/1000
+                    baseAcet = Constants.acet_map[dataset][name] #float(arr[4])
 
-    """
+                    # compute wss
+                    wss_mean, wss_std = Constants.WSS_DIST['Default_WSS']
+                    wss = distributions.sample_normal_dist(wss_mean, wss_std)
+                    # shouldn't have negative wss, minimum of 32KB is informed by data
+                    #wss = max([0.001 * 32, wss])
+                    wss = 2
+                    '''if dataset == 'TACLe':
+                        wss = 0.5
+                    if dataset == 'SD-VBS':
+                        wss = 1'''
+                    #num_times = int(arr[5])
+                    # randomly choose task's sensitivity to cache
+                    #for i in range(0,num_times):
+                        #cache_sense_dist = Constants.CACHE_SENSITIVITY['Default_Sensitivity']
+                        #cache_sense = distributions.sample_choice(cache_sense_dist)
+                        #print(dataset,name)
+                    cache_sense = Constants.cacheSensitivityMapping[dataset][name]
+                    newTask = Task(taskID, self.level, baseCost, period, relDeadline, wss, cache_sense, startingID, targetUtil, baseAcet, case_study)
+                    newTask.name = name
+                    self.tasksThisLevel.append(newTask)
+                    taskID += 1
+                        #print(newTask.ID, newTask.name, newTask.level, baseCost, period, wss, cache_sense)
+                        #util += baseCost/period
+        #print(util)
+        smt_dist = Constants.SMT_EFFECTIVENESS_DIST['DIS_SMTv2']
+        self._generate_smt_costs_case_study(smt_dist, dataset)
+        return taskID
+
 
     def setAllSolo(self):
         if self.level is Constants.LEVEL_A or self.level is Constants.LEVEL_B:
