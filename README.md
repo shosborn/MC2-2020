@@ -11,12 +11,12 @@ To run the schedulability study experiments, create a folder named 'Results' and
 python sched_study.py -m <number of processors> -c <cores per core-complex> -p <period> -s <SMT effectiveness> -u <per-task utilization> -r <criticality distrbution>
                       -l <maximum threaded util> -t <track spent time> -v <verbose> -d <debug> 
 ```
-where
-`<period>` should be one of `{'Long', 'Short', 'Many','Contrasting'}`,
-`<SMT effectiveness>` should be one of `{'DIS_SMTv2','TACLE_SMTv2','SDVBS_SMTv2','Prior_SMTv2','TACLE_v_SDVBS_SMTv2'}`,
-`<per-task utilization>` should be one of `{'Heavy_Util','Moderate_Util','Light_Util'}`,
-`<criticality distrbution>` should be one of `{'AB-Moderate','C-Heavy'}`
-`<maximum threaded util>` should be a number between 0 and 1.
+where<br />
+`<period>` should be one of `{'Long', 'Short', 'Many','Contrasting'}`,<br />
+`<SMT effectiveness>` should be one of `{'DIS_SMTv2','TACLE_SMTv2','SDVBS_SMTv2','Prior_SMTv2','TACLE_v_SDVBS_SMTv2'}`,<br />
+`<per-task utilization>` should be one of `{'Heavy_Util','Moderate_Util','Light_Util'}`,<br />
+`<criticality distrbution>` should be one of `{'AB-Moderate','C-Heavy'}`,<br />
+`<maximum threaded util>` should be a number between 0 and 1.<br />
 See the paper for detail about the parameter choices.
 
 Example:
