@@ -174,7 +174,7 @@ class Constants:
     # Oct 25 2020, Note: Unfriendliness chance is disabled because we just naturally let the normal
     #                    distribution generate values >2 -Joshua
     SMT_EFFECTIVENESS_DIST: Dict[str, Dict[int,Tuple[float,float,float]]] = {
-        'DIS_SMTv2':   {LEVEL_A: (.30, .17, .05), LEVEL_B: (.30, .17, .05), LEVEL_C: (1.60, .54, 0)}, # A/B: DIS-based; 10x diff, <=0, >1 removed and >1 modeled. C: DIS-based w/out coloring
+        'DIS_SMTv2':   {LEVEL_A: (.34, .20, .00), LEVEL_B: (.34, .20, .00), LEVEL_C: (1.60, .54, 0)}, # A/B: DIS-based; 10x diff, <=0, >1 removed and >1 modeled. C: DIS-based w/out coloring
         'TACLE_SMTv2': {LEVEL_A: (.40, .21, .15), LEVEL_B: (.40, .21, .15), LEVEL_C: (1.79, .32, 0)}, # A/B: SD-VBS-based; 10x diff, <=0, >1 removed and >1 modeled. C: TACLe-based w/out coloring
         'SDVBS_SMTv2': {LEVEL_A: (.52, .17, .05), LEVEL_B: (.52, .17, .05), LEVEL_C: (1.72, .13, 0)}, # A/B: TACLe-based; 10x diff, <=0, >1 removed and >1 modeled. C: SD-VBS-based w/out coloring
         'Prior_SMTv2': {LEVEL_A: (.60, .07, .20), LEVEL_B: (.60, .07, .20), LEVEL_C: (1.80, .10, 0)}, # A/B/C: From prior work
