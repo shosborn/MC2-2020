@@ -63,4 +63,4 @@ Example:
 ``` shell
 python case_study_task_gen.py -m 8 -u 5.5 -r AB-Moderate -n 1
 ```
-Task generation can take time depending on the scenario and targer system utilization.
+Task generation can take time depending on the scenario and target system utilization.
