@@ -6,9 +6,9 @@ Support for schedulability tests incorporating SMT in the MC-Squared project (UN
 2. Gurobi
 
 ## Running Schedulability Studies
-To run the schedulability study experiments, create a folder named 'Results' and execute the following:
+To run the schedulability study experiments, create a folder named 'results' and execute the following:
 ``` shell
-python sched_study.py -m <number of processors> -c <cores per core-complex> -p <period> -s <SMT effectiveness> -u <per-task utilization> -r <criticality distrbution>
+python sched_study.py -m <number of cores> -c <cores per core-complex> -p <period> -s <SMT effectiveness> -u <per-task utilization> -r <criticality distrbution>
                       -l <maximum threaded util> -t <track spent time> -v <verbose> -d <debug> 
 ```
 where<br />
@@ -33,3 +33,34 @@ To generate SUAs execute the following
 ``` shell
 python aggregator.py
 ```
+
+## Schedulability test for case study tasks
+There are 10 task sets schedulable with SMT in the directory `case_study_tasks` corresponding to the highest schedulable utilization (5.5) for scenario  `AB-Moderate, Long, Light_Util, TACLe_SDVBS_SMTv2` on 8 processors. To test the schedulability, execute the following.
+``` shell
+python case_study_run.py -m <number of cores> -u <system utilization> -A <Level-A task benchmark> -B <Level-B task benchmark> -C <Level-C task benchmark> -f <task set filepath>
+```
+where <br />
+`<system utilization>` is task set's total utilization at Level-A (the point on x-axis in schedulability plot for which the corresponding task set is generated),<br />
+`<Level-A task benchmark>` is benchmarks for Level-A tasks (default `TACLe`), <br />
+`<Level-B task benchmark>` is benchmarks for Level-B tasks (default `TACLe`), <br />
+`<Level-C task benchmark>` is benchmarks for Level-C tasks (default `SD-VBS`), <br />
+`<file path>` is path to the input file (`all_tasks.csv` files under folder `case_study_tasks/<ID>/`). <br />
+If the task set is schedulable, three files will be generated in the folder containing the input task sets. The generated files `l3alloc.csv, levelAB_pairs.csv, levelC_threads.csv` contain L3 allocation decisions, Level-A and -B task pairing decisions, and Level-C threading decisions, respectively.<br />
+
+Example:
+``` shell
+python case_study_run.py -m 8 -u 5.5 -A TACLe -B TACLe -C SD-VBS -f case_study_tasks/1/all_tasks.csv
+```
+
+## Case study task generation
+Schedulable task sets can be generated for `TACLe_SDVBS_SMTv2` SMT-effectiveness, `Light` per-task utilizations, and `Long` period distribution. To generate a task set, execute the following.
+``` shell
+python case_study_task_gen.py -m <number of cores> -u <system utilization> -r <criticality distribution> -n <task set ID>
+```
+The task set will be stored in `case_study_tasks/<task set ID>` folder. The files `all_tasks.csv, l3alloc.csv, levelAB_pairs.csv, levelC_threads.csv` contain parameters of all tasks, L3 allocation decisions, Level-A and -B task pairing decisions, and Level-C threading decisions, respectively.
+
+Example:
+``` shell
+python case_study_task_gen.py -m 8 -u 5.5 -r AB-Moderate -n 1
+```
+Task generation can take time depending on the scenario and target system utilization.
