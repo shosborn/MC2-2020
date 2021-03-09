@@ -49,7 +49,7 @@ If the task set is schedulable, three files will be generated in the folder cont
 
 Example:
 ``` shell
-python case_study_run.py -m 8 -u 5.5 -A TACLe -B TACLe -C SD-VBS -f case_study_tasks\\1\\all_tasks.csv
+python case_study_run.py -m 8 -u 5.5 -A TACLe -B TACLe -C SD-VBS -f case_study_tasks/1/all_tasks.csv
 ```
 
 ## Case study task generation
