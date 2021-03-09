@@ -128,7 +128,7 @@ def main():
         if success is not GRB.OPTIMAL:
             print("LP solver failed")
             return False
-    fileName = dir + "\\l3alloc" + ".csv"
+    fileName = dir + "/l3alloc" + ".csv"
     with open(fileName, "w", newline='\n', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         csvwriter.writerow(['core', 'levelAB', 'levelAB', 'levelC'])
@@ -137,7 +137,7 @@ def main():
                 continue
             csvwriter.writerow([core.coreID, core.cacheAB[0], core.cacheAB[1], core.cacheC / 2])
 
-    with open(dir +'\\levelAB_pairs'+ '.csv', "w", newline='\n', encoding='utf-8') as f:
+    with open(dir +'/levelAB_pairs'+ '.csv', "w", newline='\n', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         csvwriter.writerow(
             ['core','crit_level','task1 id','task1 name','task1 period', 'task2 id', 'task2 name', 'task2 period'])
@@ -159,7 +159,7 @@ def main():
                         #print(t2.ID, ",", t2.name, ",", t2.period / 1000)
                         # print("This level: ", cost, period, util)
             #print()
-    with open(dir + '\\levelC_threads' + '.csv', "w", newline='\n', encoding='utf-8') as f:
+    with open(dir + '/levelC_threads' + '.csv', "w", newline='\n', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         for thisCluster in mySystem.levelC.soloClusters:
             solo_cores = ['solo']

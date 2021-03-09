@@ -17,7 +17,7 @@ def main(targetUtil, benchmark, iter=None):
     cacheSizeL3 = Constants.CACHE_SIZE_L3
     outdir = "case_study_tasks"
     if iter is not None:
-        outdir = "case_study_tasks\\"+str(iter)
+        outdir = "case_study_tasks/"+str(iter)
 
     assumedCache = cacheSizeL3
     targetUtil = targetUtil
@@ -95,7 +95,7 @@ def main(targetUtil, benchmark, iter=None):
     if not os.path.isdir(outdir):
         os.mkdir(outdir)
 
-    fileName = outdir+"\\l3alloc.csv"
+    fileName = outdir+"/l3alloc.csv"
     with open(fileName, "w", newline='\n', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         csvwriter.writerow(['core', 'levelAB', 'levelAB', 'levelC'])
@@ -107,7 +107,7 @@ def main(targetUtil, benchmark, iter=None):
     cache_decison = time.time() - start
     #print("--- times ---")
     print(thread_decision,partition_time,cache_decison)
-    with open(outdir+'\\all_tasks.csv', "w", newline='\n', encoding='utf-8') as f:
+    with open(outdir+'/all_tasks.csv', "w", newline='\n', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         csvwriter.writerow(['task id','suite','benchmark','crit level','level-A pet(us)','period (ms)','wss'])
         for level in range(Constants.LEVEL_A, Constants.LEVEL_C+1):
@@ -115,7 +115,7 @@ def main(targetUtil, benchmark, iter=None):
                 csvwriter.writerow(
                     [task.ID, benchmark[level], task.name, task.level, task.baseCost, task.period/1000, task.wss])
 
-    with open(outdir+'\\levelAB_pairs.csv', "w", newline='\n', encoding='utf-8') as f:
+    with open(outdir+'/levelAB_pairs.csv', "w", newline='\n', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         csvwriter.writerow(
             ['core','crit_level','task1 id','task1 name','task1 period', 'task2 id', 'task2 name', 'task2 period'])
@@ -140,7 +140,7 @@ def main(targetUtil, benchmark, iter=None):
                         #print(t2.ID, ",", t2.name, ",", t2.period / 1000)
                         # print("This level: ", cost, period, util)
             #print()
-    with open(outdir+'\\levelC_threads.csv', "w", newline='\n', encoding='utf-8') as f:
+    with open(outdir+'/levelC_threads.csv', "w", newline='\n', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         for thisCluster in mySystem.levelC.soloClusters:
             solo_cores = ['solo']
