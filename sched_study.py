@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from constants import Constants
 from taskSystem import taskSystem, compareSystems
 from LLCAllocation import LLCAllocation
@@ -103,13 +104,13 @@ def generateTaskSystem(scenario, sysUtil):
         targetUtil = sysUtil*util_caps_per_crit[level]
         critLevel = mySystem.levels[level]
         if Constants.TIMEKEEPING:
-            generate_start = time.clock()
+            generate_start = time.process_time()
         newTasks = critLevel.createTasks(scenario, targetUtil, startingID, sysUtil)
         if Constants.VERBOSE:
             print('COUNT,Crit_Level,%d,%d' % (newTasks, level))
         startingID += newTasks
         if Constants.TIMEKEEPING:
-            print('TIME,Crit_Level,%d' % int(time.clock() - generate_start))
+            print('TIME,Crit_Level,%d' % int(time.process_time() - generate_start))
 
     return mySystem
 
@@ -267,11 +268,11 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
     if numFails >= _FAIL_THRESHOLD:
         return scenario, sysUtil, sched_ratio_dict, numTasksAverage, timeAverage, 0, numSamples, debug_dict
 
-    start_dp = time.clock()
+    start_dp = time.process_time()
     while numSamples < Constants.MIN_SAMPLES or normal_approx_error(sched_ratio_dict, numSamples):
         if numSamples >= Constants.MAX_SAMPLES:
             break
-        start_iteration = time.clock()
+        start_iteration = time.process_time()
         this_iter_results = {}
         # assume schedulable until something fails
         for scheme in sched_ratio_dict.keys():
@@ -281,16 +282,16 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
             this_iter_results[Constants.THREAD_FINE] = False
 
         if Constants.TIMEKEEPING:
-            generate_start = time.clock()
+            generate_start = time.process_time()
         scenSystem = generateTaskSystem(scenario, sysUtil)
         # Replicate the task system so that one can be considered without threading
         cloneSystem = cloneTaskSystem(scenSystem)
 
         if Constants.TIMEKEEPING:
-            print('TIME,Task_Sys,%d' % int(time.clock() - generate_start))
+            print('TIME,Task_Sys,%d' % int(time.process_time() - generate_start))
 
         if Constants.TIMEKEEPING:
-            assign_start = time.clock()
+            assign_start = time.process_time()
         gStatus = scenSystem.levelA.setPairsList()
         assert( gStatus in _EXPECTED_STATUS_SET )
         if gStatus is not GRB.OPTIMAL:
@@ -370,10 +371,10 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
         #compareSystems(scenSystem,cloneSystem)
 
         if Constants.TIMEKEEPING:
-            print('TIME,Assign_Tasks,%d' % int(time.clock() - assign_start))
+            print('TIME,Assign_Tasks,%d' % int(time.process_time() - assign_start))
 
         if Constants.TIMEKEEPING:
-            optimize_start = time.clock()
+            optimize_start = time.process_time()
 
         if any(this_iter_results.values()):
             overhead = Overheads()
@@ -420,7 +421,7 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
 
 
         if Constants.TIMEKEEPING:
-            print('TIME,Optimize_Cache,%d' % int(time.clock() - optimize_start))
+            print('TIME,Optimize_Cache,%d' % int(time.process_time() - optimize_start))
 
         numSamples += 1
         for scheme in sched_ratio_dict.keys():
@@ -429,12 +430,12 @@ def schedStudySingleScenarioUtil(scenario,numCores,corePerComplex,sysUtil) -> (D
         numTasksAverage *= (numSamples-1)/numSamples
         numTasksAverage += sum([len(crit_level.tasksThisLevel) for crit_level in scenSystem.levels.values()])/numSamples
         timeAverage *= (numSamples-1)/numSamples
-        timeAverage += (time.clock() - start_iteration)/numSamples
+        timeAverage += (time.process_time() - start_iteration)/numSamples
 
     # todo: for this sysUtil write sched ratios to file
     if Constants.VERBOSE:
         print('COUNT,Scenario_Samples,%d' % numSamples)
-    totalTime = time.clock() - start_dp
+    totalTime = time.process_time() - start_dp
     return scenario, sysUtil, sched_ratio_dict, numTasksAverage, timeAverage, totalTime, numSamples, debug_dict
 
 
