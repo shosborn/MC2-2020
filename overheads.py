@@ -1,15 +1,14 @@
-#from csv import DictReader
+# Copyright 2021 Joshua Bakita, Stephen Tang, Shareef Ahmed, and Sims Hill Osborne
 from collections import defaultdict
 from constants import Constants
-import pandas as pd
-#import math
+import numpy as np
 from task import get_pair_util
 
 
 class Overheads:
 
     def __init__(self):
-        self.overheadData = None
+        self.overheadData = {}
         self.overheadValue = defaultdict()
 
         for key in Constants.OVERHEAD_TYPES:
@@ -28,22 +27,18 @@ class Overheads:
         Load overhead data to self.overheadData after making the data monotonic
         :param dirName: directory where overhead data are stored
         :return:
+        :note Overhead values must be saved in order of increasing task counts!
         """
         critMap = {'A':Constants.LEVEL_A, 'B': Constants.LEVEL_B, 'C':Constants.LEVEL_C}
-        overheadData = defaultdict()
-        for critLevelKey  in critMap:
-            critLevelValue = critMap[critLevelKey]
-            overheadData[critLevelValue] = defaultdict()
+        for critLevelKey, critLevelValue in critMap.items():
             fileName = dirName + "//ovh_" + critLevelKey + "_mc2" + ".csv"
-            overheadData[critLevelValue] = pd.read_csv(fileName, index_col=0)
-            for column in range(overheadData[critLevelValue].shape[1]):
-                maxValue = -1
-                for row in range(overheadData[critLevelValue].shape[0]):
-                    maxValue = max(maxValue,overheadData[critLevelValue].iloc[row,column])
-                    overheadData[critLevelValue].iloc[row, column] = maxValue #make monotonic
+            self.overheadData[critLevelValue] = np.genfromtxt(fileName, delimiter=',', names=True, deletechars='')
+            # Force overhead values to monotonically increase as the task count does
+            for col_name in self.overheadData[critLevelValue].dtype.names:
+                self.overheadData[critLevelValue][col_name] = np.maximum.accumulate(self.overheadData[critLevelValue][col_name])
             #if critLevelValue == Constants.LEVEL_A:
+            #    np.set_printoptions(precision=2, suppress=True)
             #    print(overheadData[critLevelValue])
-        self.overheadData = overheadData
 
     def montonicInterpolation(self,taskCount,costLevel,overhead):
         """
@@ -56,12 +51,12 @@ class Overheads:
         :return: interpolated value
         """
 
-        numTasks = list(self.overheadData[costLevel].index)
+        numTasks = self.overheadData[costLevel]['TASKS']
         overheadData = self.overheadData[costLevel][overhead]
         if taskCount < numTasks[0]:
-            return overheadData.iloc[0]
+            return overheadData[0]
         if taskCount > numTasks[-1]:
-            return overheadData.iloc[-1]
+            return overheadData[-1]
         start = 0
         end = len(numTasks)-1
         mid = int(len(numTasks)/2)
@@ -73,15 +68,14 @@ class Overheads:
             if start > end:
                 break
             mid = int((start+end)/2)
-        #print(mid)
 
         if numTasks[mid] == taskCount:
-            return overheadData.iloc[mid]
+            return overheadData[mid]
         if numTasks[mid] > taskCount:
-            return overheadData.iloc[mid-1] + (overheadData.iloc[mid]-overheadData.iloc[mid-1])/(numTasks[mid]-numTasks[mid-1])*\
+            return overheadData[mid-1] + (overheadData[mid]-overheadData[mid-1])/(numTasks[mid]-numTasks[mid-1])*\
                    (taskCount-numTasks[mid-1])
         if numTasks[mid] < taskCount:
-            return overheadData.iloc[mid] + (overheadData.iloc[mid+1] - overheadData.iloc[mid]) / (
+            return overheadData[mid] + (overheadData[mid+1] - overheadData[mid]) / (
                         numTasks[mid+1] - numTasks[mid]) * \
                    (taskCount - numTasks[mid])
 
@@ -97,17 +91,17 @@ class Overheads:
         :return: interpolated value
         """
 
-        numTasks = list(self.overheadData[costLevel].index)
+        numTasks = self.overheadData[costLevel]['TASKS']
         overheadData = self.overheadData[costLevel][overhead]
         if taskCount < numTasks[0]:
-            return overheadData.iloc[0]
+            return overheadData[0]
         if taskCount > numTasks[-1]:
-            mid = int(len(numTasks)/2)
-            return overheadData.iloc[mid] + (overheadData.iloc[-1]-overheadData.iloc[mid])/(numTasks[-1]-numTasks[mid])*\
+            mid = len(numTasks) // 2 # Integer (floor) division
+            return overheadData[mid] + (overheadData[-1]-overheadData[mid])/(numTasks[-1]-numTasks[mid])*\
                    (taskCount-numTasks[mid])
         start = 0
         end = len(numTasks)-1
-        mid = int(len(numTasks)/2)
+        mid = len(numTasks) // 2 # Integer (floor) division
         while numTasks[mid] != taskCount:
             if taskCount < numTasks[mid]:
                 end = mid-1
@@ -115,14 +109,14 @@ class Overheads:
                 start = mid+1
             if start > end:
                 break
-            mid = int((start+end)/2)
+            mid = (start+end) // 2 # Integer (floor) division
         if numTasks[mid] == taskCount:
-            return overheadData.iloc[mid]
+            return overheadData[mid]
         if numTasks[mid] > taskCount:
-            return overheadData.iloc[mid-1] + (overheadData.iloc[mid]-overheadData.iloc[mid-1])/(numTasks[mid]-numTasks[mid-1])*\
+            return overheadData[mid-1] + (overheadData[mid]-overheadData[mid-1])/(numTasks[mid]-numTasks[mid-1])*\
                    (taskCount-numTasks[mid-1])
         if numTasks[mid] < taskCount:
-            return overheadData.iloc[mid] + (overheadData.iloc[mid+1] - overheadData.iloc[mid]) / (
+            return overheadData[mid] + (overheadData[mid+1] - overheadData[mid]) / (
                         numTasks[mid+1] - numTasks[mid]) * \
                    (taskCount - numTasks[mid])
 
