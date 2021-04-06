@@ -1,9 +1,15 @@
-# MC2-2020
-Support for schedulability tests incorporating SMT in the MC-Squared project (UNC-CH, Dept. Comp. Sci., Real-Time)
+# Schedulability Test and Taskset Generation Code for the MC² Project
+This code only supports modeling MC² systems with SMT. This has been developed by the Real-Time Systems group in the Computer Science Department at UNC Chapel Hill. All code is GPL-3 licenced unless otherwise stated.
 
 ## Dependecies
-1. python 3.6 or higher
-2. Gurobi
+1. Python 3.6 or higher
+2. Gurobi with Python bindings
+3. NumPy
+4. Matplotlib (for graphing)
+
+Gurobi is commercial software, however free academic licences are available. Please follow [these instructions](https://www.gurobi.com/academia/academic-program-and-licenses/) to obtain Gurobi and add it to your PATH. Please see your package maintainers on how to obtain a recent version of Python if your current version is too old. We do not support running on Windows.
+
+On Ubuntu 20.04, the other dependencies can be obtained via `sudo apt install python3-numpy python3-matplotlib`.
 
 ## Running Schedulability Studies
 To run the schedulability study experiments, create a folder named 'results' and execute the following:
