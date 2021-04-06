@@ -86,8 +86,8 @@ class Constants:
     # It's technically possible for a solo task to occupy all ways
     MAX_HALF_WAYS = 32
 
-    MIN_SAMPLES = 1#50
-    MAX_SAMPLES = 1#200 #set at 2 for initial testing
+    MIN_SAMPLES = 50
+    MAX_SAMPLES = 200 #set at 2 for initial testing
     CONF_INTERVAL = 0.05
     CONF_LEVEL = 0.95
 
