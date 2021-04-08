@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python3
 import csv
 import os
 from typing import Dict
@@ -10,7 +10,6 @@ parameters = ['CRIT_UTIL_DIST',
               'CACHE_SENSITIVITY',
               'WSS_DIST',
               'SMT_EFFECTIVENESS_DIST',
-              'CRIT_SENSITIVITY',
               'MAX_THREADED_UTIL',
               'CORE_COUNT']
 schemes = ['SOLO',

@@ -27,18 +27,12 @@ See the paper for detail about the parameter choices.
 
 Example:
 ``` shell
-python sched_study.py -m 8 -p Long -r AB-Moderate -u Light_Util -s TACLE_v_SDVBS_SMTv2
+./sched_study.py -m 8 -p Long -r AB-Moderate -u Light_Util -s TACLE_v_SDVBS_SMTv2
 ```
 
-To create schedulibity plots, create a folder named 'plots' and two folders named 'pdfs' and 'pngs' underneath it, and execute the following
-``` shell
-python schedplot.py
-```
+To create schedulibity plots, create a folder named 'plots' and two folders named 'pdfs' and 'pngs' underneath it, and then execute `./schedplot.py`.
 
-To generate SUAs execute the following
-``` shell
-python aggregator.py
-```
+To generate SUAs execute `./aggregator.py`.
 
 ## Schedulability test for case study tasks
 There are 10 task sets schedulable with SMT in the directory `case_study_tasks` corresponding to the highest schedulable utilization (5.5) for scenario  `AB-Moderate, Long, Light_Util, TACLe_SDVBS_SMTv2` on 8 processors. To test the schedulability, execute the following.
