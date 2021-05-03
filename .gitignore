@@ -1,2 +1,6 @@
+# Ignore Python cache
 **/__pycache__
+# Ignore Gurobi's log
 **/gurobi.log
+# Ignore log files from slurm on longleaf
+**/slurm-*.out
