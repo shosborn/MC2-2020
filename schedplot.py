@@ -82,7 +82,13 @@ def main():
             if sched == "THREAD_FINE":
                 continue
             plt.plot(npdata["SYS_UTIL"], npdata[sched], LINE_STYLE[ndx], label=legendnames[ndx], linewidth=lw, markersize = lw*3)
-            plt.xlim(max([0, int(min(npdata["SYS_UTIL"]))-1]),int(max(npdata["SYS_UTIL"])+1))
+            xlim = int(max(npdata["SYS_UTIL"]))
+            # Trim x axis as we don't have any scenarios with schedulability over 1.5 * cores
+            if xlim == 16:
+                xlim = 12
+            elif xlim == 32:
+                xlim = 24
+            plt.xlim(max([0, int(min(npdata["SYS_UTIL"]))-1]), xlim + 1)
             lw -= 0.3
         
         plt.legend(loc="upper right")
